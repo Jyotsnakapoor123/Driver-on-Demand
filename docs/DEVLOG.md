@@ -22,6 +22,59 @@ A simple booking experience where the user can book a driver instead of looking 
 “You own the car. We provide the driver.”
 
 ---
+## [2026-09-10] — Jyotsna Kapoor — Booking Summary & Confirmation
+
+**Files touched:** `lib/booking_screen.dart`, `lib/booking_summary_screen.dart`, `test/widget_test.dart`
+
+**Commit(s):**
+
+- `905b983` — feat: add booking summary and confirmation
+
+**What was done:**
+
+- Booking screen ko Booking Summary screen ke saath connect kiya.
+- `FIND A DRIVER` button ko `REVIEW BOOKING` mein change kiya
+- Booking details validate hone ke baad Booking Summary screen par navigation add kiya.
+- Booking screen se pickup location, pickup address, date, time, duration aur hourly rate Booking Summary screen par pass kiya.
+- Naya `booking_summary_screen.dart` screen create kiya.
+- Booking Summary mein selected pickup location dikhaya.
+- Selected date aur time dikhaya.
+- Selected booking duration dikhayi.
+- Total fare ka section add kiya.
+- Fare ko selected duration ke according dynamically calculate kiya.
+- Current hourly rate `₹300/hour` rakha.
+- Example ke liye 2 hours select karne par total fare `₹600` correctly show hua.
+- `CONFIRM BOOKING` button add kiya.
+- Confirm button press karne par `Booking details confirmed!` Snackbar show kiya.
+- Existing Flutter widget test ko update kiya kyunki old test `MyApp` ko reference kar raha tha aur analyzer error aa raha tha.
+
+**Tested:**
+
+- Android emulator par complete booking flow test kiya.
+- `BOOK A DRIVER` se Booking Screen open hui.
+- Pickup location successfully select ki.
+- Date select ki.
+- Time select ki.
+- Duration select ki.
+- `REVIEW BOOKING` press karne par Booking Summary screen open hui.
+- Pickup location, date, time aur duration correctly display hue.
+- `₹300 × 2 hours = ₹600` fare calculation verify ki.
+- `CONFIRM BOOKING` press kiya.
+- `Booking details confirmed!` Snackbar successfully show hua.
+- `flutter analyze` run kiya.
+- Booking Summary se related koi compilation error nahi raha.
+
+**Decisions/Notes:**
+
+- Abhi `CONFIRM BOOKING` sirf confirmation Snackbar show karta hai.
+- Abhi actual booking database/backend mein save nahi ho rahi hai.
+- Abhi unique Booking ID generate nahi ho rahi hai.
+- Driver matching aur driver assignment abhi implement nahi kiya gaya hai.
+- Driver verification/background check abhi implement nahi kiya gaya hai.
+- Live tracking aur payment system abhi implement nahi kiya gaya hai.
+- In features ko later development phases mein implement kiya jayega.
+
+---
 
 ## [2026-09-10] — Jyotsna Kapoor — Mappls pickup location
 
