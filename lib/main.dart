@@ -26,7 +26,6 @@ class HomeScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Driver On Demand'),
       ),
-
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
