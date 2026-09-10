@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mappls_gl/mappls_gl.dart';
 import 'map_screen.dart';
+import 'booking_summary_screen.dart';
 
 class BookingScreen extends StatefulWidget {
   const BookingScreen({super.key});
@@ -83,56 +84,53 @@ class _BookingScreenState extends State<BookingScreen> {
   // ----------------------------------------------------------
 
   void findDriver() {
-    if (selectedLocation == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please select your pickup location first.',
-          ),
-        ),
-      );
-      return;
-    }
-
-    if (selectedDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please select the date.',
-          ),
-        ),
-      );
-      return;
-    }
-
-    if (selectedTime == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please select the time.',
-          ),
-        ),
-      );
-      return;
-    }
-
-    print('Finding a driver...');
-    print('Location: $selectedAddress');
-    print('Latitude: ${selectedLocation!.latitude}');
-    print('Longitude: ${selectedLocation!.longitude}');
-    print('Date: $selectedDate');
-    print('Time: $selectedTime');
-    print('Duration: $hours hours');
-    print('Estimated fare: ₹${hourlyRate * hours}');
-
+  if (selectedLocation == null) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
-          'Searching for available drivers...',
+          'Please select your pickup location first.',
         ),
       ),
     );
+    return;
   }
+
+  if (selectedDate == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Please select the date.',
+        ),
+      ),
+    );
+    return;
+  }
+
+  if (selectedTime == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Please select the time.',
+        ),
+      ),
+    );
+    return;
+  }
+
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => BookingSummaryScreen(
+        pickupLocation: selectedLocation!,
+        pickupAddress: selectedAddress!,
+        selectedDate: selectedDate!,
+        selectedTime: selectedTime!,
+        hours: hours,
+        hourlyRate: hourlyRate,
+      ),
+    ),
+  );
+}
 
   // ----------------------------------------------------------
   // UI
@@ -481,7 +479,7 @@ class _BookingScreenState extends State<BookingScreen> {
                 ),
 
                 child: const Text(
-                  'FIND A DRIVER',
+                  'REVIEW BOOKING',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
