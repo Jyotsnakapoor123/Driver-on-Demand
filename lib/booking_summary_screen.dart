@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mappls_gl/mappls_gl.dart';
+import 'booking_confirmation_screen.dart';
 
 class BookingSummaryScreen extends StatelessWidget {
   final LatLng pickupLocation;
@@ -135,10 +136,21 @@ class BookingSummaryScreen extends StatelessWidget {
               height: 54,
               child: ElevatedButton(
                 onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Booking details confirmed!',
+                  final now = DateTime.now();
+
+                  final bookingId =
+                      'DOD-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}-${now.millisecondsSinceEpoch.toString().substring(8)}';
+
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => BookingConfirmationScreen(
+                        bookingId: bookingId,
+                        pickupAddress: pickupAddress,
+                        selectedDate: selectedDate,
+                        selectedTime: selectedTime,
+                        hours: hours,
+                        totalFare: totalFare,
                       ),
                     ),
                   );
