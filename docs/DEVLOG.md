@@ -22,6 +22,43 @@ A simple booking experience where the user can book a driver instead of looking 
 “You own the car. We provide the driver.”
 
 ---
+
+## [2026-09-11] — Jyotsna Kapoor — Booking Confirmation & Booking ID
+
+**Files touched:** `lib/booking_summary_screen.dart`, `lib/booking_confirmation_screen.dart`
+
+**Commit(s):**
+- `7047c8b` — feat: add booking confirmation screen
+
+**What was done:**
+- Booking Summary screen ke `CONFIRM BOOKING` button ko Booking Confirmation screen ke saath connect kiya.
+- `booking_confirmation_screen.dart` naam ki new screen create ki.
+- `CONFIRM BOOKING` press karne ke baad Booking Confirmation screen open hone ka flow add kiya.
+- Booking ke liye unique Booking ID generate karne ka logic add kiya.
+- Booking ID ko `DOD-YYYYMMDD-XXXXX` format mein display kiya.
+- Pickup location, date, time, duration aur total fare Confirmation screen par pass kiya.
+- Confirmation screen par complete booking details display ki.
+- `DONE` button add kiya jo user ko Home Screen par wapas le jata hai.
+
+**Tested:**
+- Android emulator par complete booking confirmation flow test kiya.
+- `CONFIRM BOOKING` press karne par Booking Confirmation screen successfully open hui.
+- Unique Booking ID successfully generate hui.
+- Example Booking ID: `DOD-20260911-60777`
+- Pickup location, date, time, duration aur total fare correctly display hue.
+- `₹300 × 2 hours = ₹600` fare correctly display hua.
+- `DONE` button se Home Screen par wapas aana verify kiya.
+- `flutter analyze` run kiya; koi compilation error nahi mila.
+
+**Decisions/Notes:**
+- Booking ID abhi locally generate ho rahi hai.
+- Booking details abhi database/backend mein permanently save nahi ho rahi hain.
+- Actual booking record creation abhi implement nahi hua hai.
+- Driver matching, driver assignment, driver verification, live tracking aur payments abhi implement nahi kiye gaye hain.
+- `map_screen.dart` ka remaining `unnecessary_underscores` message informational lint hai aur compilation ko affect nahi karta.
+
+---
+
 ## [2026-09-10] — Jyotsna Kapoor — Booking Summary & Confirmation
 
 **Files touched:** `lib/booking_screen.dart`, `lib/booking_summary_screen.dart`, `test/widget_test.dart`
