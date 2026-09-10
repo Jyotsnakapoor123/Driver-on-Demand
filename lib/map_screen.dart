@@ -16,7 +16,8 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   final MapController mapController = MapController();
-  final TextEditingController searchController = TextEditingController();
+  final TextEditingController searchController =
+      TextEditingController();
 
   Timer? _debounce;
 
@@ -30,15 +31,15 @@ class _MapScreenState extends State<MapScreen> {
   bool isLoadingLocation = true;
   bool isSearching = false;
 
-  int _searchRequestId = 0;
-  int _selectionRequestId = 0;
+  int _searchId = 0;
+  int _selectionId = 0;
 
   @override
   void initState() {
     super.initState();
 
-    // Get GPS only for showing the map near the user.
-    // DO NOT automatically select it as pickup.
+    // GPS is ONLY used to centre the map.
+    // It is NOT automatically selected as pickup.
     getCurrentLocation(selectAsPickup: false);
   }
 
@@ -57,7 +58,7 @@ class _MapScreenState extends State<MapScreen> {
     bool selectAsPickup = false,
   }) async {
     try {
-      final bool serviceEnabled =
+      final serviceEnabled =
           await geo.Geolocator.isLocationServiceEnabled();
 
       if (!serviceEnabled) {
@@ -67,7 +68,8 @@ class _MapScreenState extends State<MapScreen> {
           isLoadingLocation = false;
 
           if (selectAsPickup) {
-            selectedAddress = 'Location service is turned off';
+            selectedAddress =
+                'Location service is turned off';
           }
         });
 
@@ -83,28 +85,30 @@ class _MapScreenState extends State<MapScreen> {
       }
 
       if (permission == geo.LocationPermission.denied ||
-          permission == geo.LocationPermission.deniedForever) {
+          permission ==
+              geo.LocationPermission.deniedForever) {
         if (!mounted) return;
 
         setState(() {
           isLoadingLocation = false;
 
           if (selectAsPickup) {
-            selectedAddress = 'Location permission denied';
+            selectedAddress =
+                'Location permission denied';
           }
         });
 
         return;
       }
 
-      final geo.Position position =
+      final position =
           await geo.Geolocator.getCurrentPosition(
         locationSettings: const geo.LocationSettings(
           accuracy: geo.LocationAccuracy.high,
         ),
       );
 
-      final LatLng location = LatLng(
+      final location = LatLng(
         position.latitude,
         position.longitude,
       );
@@ -115,8 +119,8 @@ class _MapScreenState extends State<MapScreen> {
         currentLocation = location;
         isLoadingLocation = false;
 
-        // Only select GPS when user explicitly presses
-        // "current location" button.
+        // Only select GPS when the user explicitly
+        // presses the current-location button.
         if (selectAsPickup) {
           selectedLocation = location;
           selectedAddress = 'Getting address...';
@@ -128,7 +132,7 @@ class _MapScreenState extends State<MapScreen> {
       if (selectAsPickup) {
         await reverseGeocode(
           location,
-          requestId: ++_selectionRequestId,
+          requestId: ++_selectionId,
         );
       }
     } catch (_) {
@@ -138,7 +142,8 @@ class _MapScreenState extends State<MapScreen> {
         isLoadingLocation = false;
 
         if (selectAsPickup) {
-          selectedAddress = 'Unable to get current location';
+          selectedAddress =
+              'Unable to get current location';
         }
       });
     }
@@ -153,17 +158,7 @@ class _MapScreenState extends State<MapScreen> {
 
     final query = value.trim();
 
-    // Customer has started searching.
-    // Remove old GPS/previous pickup selection so it doesn't
-    // misleadingly remain as the selected pickup.
-    if (query.isNotEmpty) {
-      setState(() {
-        suggestions = [];
-        selectedLocation = null;
-        selectedAddress = 'Select a search result or tap the map';
-        isSearching = true;
-      });
-    } else {
+    if (query.isEmpty) {
       setState(() {
         suggestions = [];
         isSearching = false;
@@ -174,8 +169,17 @@ class _MapScreenState extends State<MapScreen> {
       return;
     }
 
+    // Remove previous pickup selection while searching.
+    setState(() {
+      suggestions = [];
+      selectedLocation = null;
+      selectedAddress =
+          'Select a search result or tap the map';
+      isSearching = true;
+    });
+
     _debounce = Timer(
-      const Duration(milliseconds: 400),
+      const Duration(milliseconds: 450),
       () {
         searchPlaces(query);
       },
@@ -183,13 +187,13 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   // ============================================================
-  // PHOTON SEARCH
+  // SEARCH
   // ============================================================
 
   Future<void> searchPlaces(String query) async {
     if (query.isEmpty) return;
 
-    final int requestId = ++_searchRequestId;
+    final int requestId = ++_searchId;
 
     if (mounted) {
       setState(() {
@@ -198,25 +202,9 @@ class _MapScreenState extends State<MapScreen> {
     }
 
     try {
-      List<SearchResult> results =
-          await _searchPhoton(query);
+      final results = await _searchPhoton(query);
 
-      // If detailed address returns nothing, try a simpler
-      // version without house/flat numbers.
-      if (results.isEmpty && _looksLikeDetailedAddress(query)) {
-        final simplifiedQuery =
-            _simplifyAddressQuery(query);
-
-        if (simplifiedQuery.isNotEmpty &&
-            simplifiedQuery != query) {
-          results = await _searchPhoton(
-            simplifiedQuery,
-            useLocationBias: false,
-          );
-        }
-      }
-
-      if (!mounted || requestId != _searchRequestId) {
+      if (!mounted || requestId != _searchId) {
         return;
       }
 
@@ -225,7 +213,7 @@ class _MapScreenState extends State<MapScreen> {
         isSearching = false;
       });
     } catch (_) {
-      if (!mounted || requestId != _searchRequestId) {
+      if (!mounted || requestId != _searchId) {
         return;
       }
 
@@ -236,27 +224,34 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  Future<List<SearchResult>> _searchPhoton(
-    String query, {
-    bool? useLocationBias,
-  }) async {
-    final bool detailed =
-        _looksLikeDetailedAddress(query);
+  // ============================================================
+  // PHOTON API
+  // ============================================================
 
-    final bool shouldBias =
-        useLocationBias ?? !detailed;
+  Future<List<SearchResult>> _searchPhoton(
+    String query,
+  ) async {
+    final requestedHouseNumber =
+        _extractHouseNumber(query);
+
+    final bool detailedSearch =
+        requestedHouseNumber != null ||
+        query.contains(',');
 
     final params = <String, String>{
       'q': query,
-      'limit': '8',
+      'limit': '12',
       'lang': 'en',
       'countrycode': 'in',
     };
 
-    // For normal searches, bias results towards the user.
-    // For detailed addresses, DON'T bias because the customer
-    // may be searching somewhere completely different.
-    if (shouldBias && currentLocation != null) {
+    // For a normal search, nearby results are useful.
+    //
+    // For detailed searches like:
+    // "FCA 275, Mukesh Colony, Ballabgarh"
+    //
+    // DO NOT bias towards current GPS.
+    if (!detailedSearch && currentLocation != null) {
       params['lat'] =
           currentLocation!.latitude.toString();
 
@@ -264,7 +259,6 @@ class _MapScreenState extends State<MapScreen> {
           currentLocation!.longitude.toString();
 
       params['zoom'] = '12';
-
       params['location_bias_scale'] = '0.3';
     }
 
@@ -283,98 +277,119 @@ class _MapScreenState extends State<MapScreen> {
     );
 
     if (response.statusCode != 200) {
-      throw Exception('Photon search failed');
+      throw Exception('Search failed');
     }
 
     final data =
-        jsonDecode(response.body) as Map<String, dynamic>;
+        jsonDecode(response.body)
+            as Map<String, dynamic>;
 
     final features =
         data['features'] as List<dynamic>? ?? [];
 
-    final results = <SearchResult>[];
+    final allResults = <SearchResult>[];
 
-    for (final item in features) {
+    for (final feature in features) {
       try {
         final result = SearchResult.fromJson(
-          item as Map<String, dynamic>,
+          feature as Map<String, dynamic>,
         );
 
         if (result.isValid) {
-          results.add(result);
+          allResults.add(result);
         }
       } catch (_) {
-        // Ignore malformed result.
+        // Ignore invalid Photon results.
       }
     }
 
-    return results;
+    // ==========================================================
+    // IMPORTANT:
+    //
+    // If user searches "275 Mukesh Colony", don't show
+    // "52 Mukesh Colony" as if it were the requested house.
+    // ==========================================================
+
+    if (requestedHouseNumber != null) {
+      final exactHouseResults =
+          allResults.where((result) {
+        return result.houseNumber != null &&
+            _numbersMatch(
+              result.houseNumber!,
+              requestedHouseNumber,
+            );
+      }).toList();
+
+      if (exactHouseResults.isNotEmpty) {
+        return exactHouseResults;
+      }
+
+      // Remove results that have a DIFFERENT house number.
+      //
+      // Example:
+      // User -> 275 Mukesh Colony
+      // Photon -> 52 Mukesh Colony
+      //
+      // 52 will NOT be shown.
+      return allResults.where((result) {
+        if (result.houseNumber == null) {
+          return true;
+        }
+
+        return !_numbersMatch(
+          result.houseNumber!,
+          requestedHouseNumber,
+        );
+      }).toList();
+    }
+
+    return allResults;
   }
 
   // ============================================================
-  // ADDRESS HELPERS
+  // HOUSE NUMBER EXTRACTION
   // ============================================================
 
-  bool _looksLikeDetailedAddress(String query) {
-    final hasNumber =
-        RegExp(r'\d').hasMatch(query);
+  String? _extractHouseNumber(String query) {
+    final match = RegExp(
+      r'\b(\d{1,5}(?:[\/\-]\d{1,5})?[A-Za-z]?)\b',
+    ).firstMatch(query);
 
-    final hasMultipleParts =
-        query.split(',').length >= 2;
+    if (match == null) {
+      return null;
+    }
 
-    return query.length >= 10 &&
-        (hasNumber || hasMultipleParts);
+    return match.group(1);
   }
 
-  String _simplifyAddressQuery(String query) {
-    String simplified = query;
+  bool _numbersMatch(
+    String a,
+    String b,
+  ) {
+    final first =
+        a.toLowerCase().replaceAll(' ', '');
 
-    // Remove house/flat numbers like:
-    // 45/12
-    // 45-A
-    // 45
-    simplified = simplified.replaceAll(
-      RegExp(r'\b\d+[\/\-]?\d*[A-Za-z]?\b'),
-      ' ',
-    );
+    final second =
+        b.toLowerCase().replaceAll(' ', '');
 
-    // Remove common flat/house labels.
-    simplified = simplified.replaceAll(
-      RegExp(
-        r'\b(flat|floor|house|h\.no|hno|plot|shop|room|apt)\b',
-        caseSensitive: false,
-      ),
-      ' ',
-    );
-
-    simplified = simplified
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .replaceAll(RegExp(r'\s*,\s*,'), ',')
-        .trim();
-
-    return simplified;
+    return first == second;
   }
 
   // ============================================================
   // SELECT SEARCH RESULT
   // ============================================================
 
-  void selectSearchResult(SearchResult result) {
-    _selectionRequestId++;
+  void selectSearchResult(
+    SearchResult result,
+  ) {
+    _selectionId++;
 
     setState(() {
       selectedLocation = result.location;
       selectedAddress = result.fullAddress;
       suggestions = [];
 
-      // Show the useful location name in search box.
-      searchController.text = result.name;
-      searchController.selection =
-          TextSelection.fromPosition(
-        TextPosition(
-          offset: searchController.text.length,
-        ),
-      );
+      searchController.text = result.fullAddress;
     });
 
     FocusScope.of(context).unfocus();
@@ -386,13 +401,13 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   // ============================================================
-  // MAP TAP = EXACT CUSTOMER PICKUP
+  // MAP TAP
   // ============================================================
 
   Future<void> selectMapLocation(
     LatLng location,
   ) async {
-    final int requestId = ++_selectionRequestId;
+    final int requestId = ++_selectionId;
 
     setState(() {
       selectedLocation = location;
@@ -436,27 +451,25 @@ class _MapScreenState extends State<MapScreen> {
         },
       );
 
+      if (!mounted ||
+          requestId != _selectionId) {
+        return;
+      }
+
       if (response.statusCode != 200) {
-        if (mounted &&
-            requestId == _selectionRequestId) {
-          setState(() {
-            selectedAddress = 'Selected location';
-          });
-        }
+        setState(() {
+          selectedAddress = 'Selected location';
+        });
 
         return;
       }
 
       final data =
-          jsonDecode(response.body) as Map<String, dynamic>;
+          jsonDecode(response.body)
+              as Map<String, dynamic>;
 
       final features =
           data['features'] as List<dynamic>? ?? [];
-
-      if (!mounted ||
-          requestId != _selectionRequestId) {
-        return;
-      }
 
       if (features.isEmpty) {
         setState(() {
@@ -475,7 +488,7 @@ class _MapScreenState extends State<MapScreen> {
       });
     } catch (_) {
       if (!mounted ||
-          requestId != _selectionRequestId) {
+          requestId != _selectionId) {
         return;
       }
 
@@ -486,7 +499,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   // ============================================================
-  // CONFIRM LOCATION
+  // CONFIRM
   // ============================================================
 
   void confirmLocation() {
@@ -494,7 +507,7 @@ class _MapScreenState extends State<MapScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Please select your pickup location first.',
+            'Please select a pickup location first.',
           ),
         ),
       );
@@ -517,7 +530,7 @@ class _MapScreenState extends State<MapScreen> {
 
   void clearSearch() {
     _debounce?.cancel();
-    _searchRequestId++;
+    _searchId++;
 
     searchController.clear();
 
@@ -535,9 +548,12 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final LatLng mapCenter =
+    final mapCenter =
         currentLocation ??
         const LatLng(28.6139, 77.2090);
+
+    final hasSearchText =
+        searchController.text.trim().isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(
@@ -580,8 +596,7 @@ class _MapScreenState extends State<MapScreen> {
                 maxZoom: 19,
               ),
 
-              // ONLY SHOW PIN AFTER CUSTOMER HAS SELECTED
-              // A PICKUP LOCATION.
+              // Selected pickup pin
               if (selectedLocation != null)
                 MarkerLayer(
                   markers: [
@@ -610,7 +625,7 @@ class _MapScreenState extends State<MapScreen> {
           ),
 
           // ======================================================
-          // SEARCH BAR
+          // SEARCH BAR + RESULTS
           // ======================================================
 
           Positioned(
@@ -661,9 +676,7 @@ class _MapScreenState extends State<MapScreen> {
                                 ),
                               ),
                             )
-                          : searchController
-                                  .text
-                                  .isNotEmpty
+                          : hasSearchText
                               ? IconButton(
                                   icon: const Icon(
                                     Icons.close,
@@ -694,7 +707,7 @@ class _MapScreenState extends State<MapScreen> {
                 ),
 
                 // ==================================================
-                // SEARCH SUGGESTIONS
+                // RESULTS
                 // ==================================================
 
                 if (suggestions.isNotEmpty)
@@ -726,7 +739,7 @@ class _MapScreenState extends State<MapScreen> {
 
                       padding:
                           const EdgeInsets.symmetric(
-                        vertical: 6,
+                        vertical: 5,
                       ),
 
                       itemCount:
@@ -784,14 +797,11 @@ class _MapScreenState extends State<MapScreen> {
                   ),
 
                 // ==================================================
-                // NO RESULT MESSAGE
+                // NO RESULTS
                 // ==================================================
 
                 if (!isSearching &&
-                    searchController
-                        .text
-                        .trim()
-                        .isNotEmpty &&
+                    hasSearchText &&
                     suggestions.isEmpty)
                   Container(
                     margin:
@@ -814,26 +824,38 @@ class _MapScreenState extends State<MapScreen> {
                       ],
                     ),
 
-                    child: const Row(
+                    child: const Column(
                       crossAxisAlignment:
                           CrossAxisAlignment.start,
 
                       children: [
-                        Icon(
-                          Icons.info_outline,
-                          color: Colors.orange,
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.location_searching,
+                              color: Colors.orange,
+                            ),
+
+                            SizedBox(width: 8),
+
+                            Text(
+                              'Exact address not found',
+                              style: TextStyle(
+                                fontWeight:
+                                    FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
 
-                        SizedBox(width: 10),
+                        SizedBox(height: 7),
 
-                        Expanded(
-                          child: Text(
-                            'Exact address not found. '
-                            'Try a shorter address or tap the map '
-                            'to place the pickup pin exactly.',
-                            style: TextStyle(
-                              fontSize: 13,
-                            ),
+                        Text(
+                          'Try a shorter area/street name, '
+                          'or tap the exact location on the map.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey,
                           ),
                         ),
                       ],
@@ -870,7 +892,7 @@ class _MapScreenState extends State<MapScreen> {
           ),
 
           // ======================================================
-          // TAP MAP HINT
+          // MAP HINT
           // ======================================================
 
           if (selectedLocation == null)
@@ -895,8 +917,8 @@ class _MapScreenState extends State<MapScreen> {
                   ),
 
                   child: const Text(
-                    '💡 Search your location or tap anywhere '
-                    'on the map to choose the exact pickup point',
+                    '📍 Search a location or tap the map '
+                    'to choose the exact pickup point',
                     textAlign: TextAlign.center,
 
                     style: TextStyle(
@@ -909,7 +931,7 @@ class _MapScreenState extends State<MapScreen> {
             ),
 
           // ======================================================
-          // BOTTOM PICKUP CARD
+          // BOTTOM CARD
           // ======================================================
 
           Positioned(
@@ -991,6 +1013,7 @@ class _MapScreenState extends State<MapScreen> {
                     ],
                   ),
 
+                  // Show actual coordinates.
                   if (selectedLocation != null)
                     Padding(
                       padding:
@@ -1058,7 +1081,7 @@ class _MapScreenState extends State<MapScreen> {
 }
 
 // ============================================================
-// MAP LOCATION RESULT
+// LOCATION RESULT
 // ============================================================
 
 class MapLocationResult {
@@ -1072,25 +1095,28 @@ class MapLocationResult {
 }
 
 // ============================================================
-// SEARCH RESULT MODEL
+// SEARCH RESULT
 // ============================================================
 
 class SearchResult {
   final String name;
   final String fullAddress;
+  final String? houseNumber;
   final LatLng location;
 
   SearchResult({
     required this.name,
     required this.fullAddress,
+    required this.houseNumber,
     required this.location,
   });
 
-  bool get isValid =>
-      location.latitude >= -90 &&
-      location.latitude <= 90 &&
-      location.longitude >= -180 &&
-      location.longitude <= 180;
+  bool get isValid {
+    return location.latitude >= -90 &&
+        location.latitude <= 90 &&
+        location.longitude >= -180 &&
+        location.longitude <= 180;
+  }
 
   factory SearchResult.fromJson(
     Map<String, dynamic> json,
@@ -1120,63 +1146,52 @@ class SearchResult {
     final latitude =
         (coordinates[1] as num).toDouble();
 
-    // ----------------------------------------------------------
-    // NAME
-    // ----------------------------------------------------------
-
-    final String name =
-        _firstNonEmpty([
-              properties['name'],
-              properties['street'],
-              properties['locality'],
-              properties['city'],
-              properties['district'],
-            ]) ??
-            'Selected location';
-
-    // ----------------------------------------------------------
-    // ADDRESS
-    // ----------------------------------------------------------
-
-    final List<String> parts = [];
-
     final houseNumber =
-        properties['housenumber']?.toString();
+        _clean(properties['housenumber']);
 
     final street =
-        properties['street']?.toString();
+        _clean(properties['street']);
 
     final locality =
-        properties['locality']?.toString();
-
-    final district =
-        properties['district']?.toString();
+        _clean(properties['locality']);
 
     final city =
-        properties['city']?.toString();
+        _clean(properties['city']);
+
+    final district =
+        _clean(properties['district']);
 
     final state =
-        properties['state']?.toString();
+        _clean(properties['state']);
 
     final postcode =
-        properties['postcode']?.toString();
+        _clean(properties['postcode']);
 
     final country =
-        properties['country']?.toString();
+        _clean(properties['country']);
+
+    final name =
+        _firstNonEmpty([
+          properties['name'],
+          street,
+          locality,
+          city,
+          district,
+        ]) ??
+        'Selected location';
+
+    final parts = <String>[];
 
     // House + street
-    if (houseNumber != null &&
-        houseNumber.trim().isNotEmpty) {
-      if (street != null &&
-          street.trim().isNotEmpty) {
+    if (houseNumber != null) {
+      if (street != null) {
         parts.add(
           '$houseNumber $street',
         );
       } else {
         parts.add(houseNumber);
       }
-    } else if (street != null &&
-        street.trim().isNotEmpty) {
+    } else if (street != null) {
       parts.add(street);
     }
 
@@ -1187,7 +1202,7 @@ class SearchResult {
     _addUnique(parts, postcode);
     _addUnique(parts, country);
 
-    final String fullAddress =
+    final fullAddress =
         parts.isEmpty
             ? name
             : parts.join(', ');
@@ -1195,11 +1210,22 @@ class SearchResult {
     return SearchResult(
       name: name,
       fullAddress: fullAddress,
+      houseNumber: houseNumber,
       location: LatLng(
         latitude,
         longitude,
       ),
     );
+  }
+
+  static String? _clean(dynamic value) {
+    if (value == null) return null;
+
+    final text = value.toString().trim();
+
+    if (text.isEmpty) return null;
+
+    return text;
   }
 
   static String? _firstNonEmpty(
@@ -1224,12 +1250,10 @@ class SearchResult {
   ) {
     if (value == null) return;
 
-    final text = value.trim();
+    if (value.isEmpty) return;
 
-    if (text.isEmpty) return;
-
-    if (!list.contains(text)) {
-      list.add(text);
+    if (!list.contains(value)) {
+      list.add(value);
     }
   }
 }

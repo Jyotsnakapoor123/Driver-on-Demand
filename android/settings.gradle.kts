@@ -4,7 +4,9 @@ pluginManagement {
             val properties = java.util.Properties()
             file("local.properties").inputStream().use { properties.load(it) }
             val flutterSdkPath = properties.getProperty("flutter.sdk")
-            require(flutterSdkPath != null) { "flutter.sdk not set in local.properties" }
+            require(flutterSdkPath != null) {
+                "flutter.sdk not set in local.properties"
+            }
             flutterSdkPath
         }
 
@@ -14,6 +16,19 @@ pluginManagement {
         google()
         mavenCentral()
         gradlePluginPortal()
+        maven {
+            url = uri("https://maven.mappls.com/repository/mappls/")
+        }
+    }
+}
+
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven {
+            url = uri("https://maven.mappls.com/repository/mappls/")
+        }
     }
 }
 
