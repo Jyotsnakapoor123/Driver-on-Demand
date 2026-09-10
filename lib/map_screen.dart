@@ -1,11 +1,8 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart' as geo;
-import 'package:http/http.dart' as http;
-import 'package:latlong2/latlong.dart';
+import 'package:mappls_gl/mappls_gl.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -15,7 +12,8 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
-  final MapController mapController = MapController();
+  MapplsMapController? _mapController;
+
   final TextEditingController searchController =
       TextEditingController();
 
@@ -26,7 +24,7 @@ class _MapScreenState extends State<MapScreen> {
 
   String selectedAddress = 'Choose a pickup location';
 
-  List<SearchResult> suggestions = [];
+  List<ELocation> suggestions = [];
 
   bool isLoadingLocation = true;
   bool isSearching = false;
@@ -34,13 +32,22 @@ class _MapScreenState extends State<MapScreen> {
   int _searchId = 0;
   int _selectionId = 0;
 
+  // This prevents old search requests from
+  // changing the UI after a result is selected.
+  bool _isSelectingResult = false;
+
+  static const LatLng _defaultLocation =
+      LatLng(28.6139, 77.2090);
+
   @override
   void initState() {
     super.initState();
 
-    // GPS is ONLY used to centre the map.
-    // It is NOT automatically selected as pickup.
-    getCurrentLocation(selectAsPickup: false);
+    // GPS only centres the map.
+    // It does NOT automatically select pickup.
+    getCurrentLocation(
+      selectAsPickup: false,
+    );
   }
 
   @override
@@ -48,6 +55,39 @@ class _MapScreenState extends State<MapScreen> {
     _debounce?.cancel();
     searchController.dispose();
     super.dispose();
+  }
+
+  // ============================================================
+  // MAP
+  // ============================================================
+
+  void onMapCreated(
+    MapplsMapController controller,
+  ) {
+    _mapController = controller;
+  }
+
+  Future<void> moveMapTo(
+    LatLng location, {
+    double zoom = 16,
+  }) async {
+    final controller = _mapController;
+
+    if (controller == null) return;
+
+    try {
+      await controller.animateCamera(
+        CameraUpdate.newLatLngZoom(
+          location,
+          zoom,
+        ),
+        duration: const Duration(
+          milliseconds: 500,
+        ),
+      );
+    } catch (_) {
+      // Ignore camera errors during initialization.
+    }
   }
 
   // ============================================================
@@ -79,12 +119,14 @@ class _MapScreenState extends State<MapScreen> {
       geo.LocationPermission permission =
           await geo.Geolocator.checkPermission();
 
-      if (permission == geo.LocationPermission.denied) {
+      if (permission ==
+          geo.LocationPermission.denied) {
         permission =
             await geo.Geolocator.requestPermission();
       }
 
-      if (permission == geo.LocationPermission.denied ||
+      if (permission ==
+              geo.LocationPermission.denied ||
           permission ==
               geo.LocationPermission.deniedForever) {
         if (!mounted) return;
@@ -103,8 +145,10 @@ class _MapScreenState extends State<MapScreen> {
 
       final position =
           await geo.Geolocator.getCurrentPosition(
-        locationSettings: const geo.LocationSettings(
-          accuracy: geo.LocationAccuracy.high,
+        locationSettings:
+            const geo.LocationSettings(
+          accuracy:
+              geo.LocationAccuracy.high,
         ),
       );
 
@@ -119,20 +163,25 @@ class _MapScreenState extends State<MapScreen> {
         currentLocation = location;
         isLoadingLocation = false;
 
-        // Only select GPS when the user explicitly
-        // presses the current-location button.
         if (selectAsPickup) {
           selectedLocation = location;
-          selectedAddress = 'Getting address...';
+          selectedAddress =
+              'Getting address...';
         }
       });
 
-      mapController.move(location, 16);
+      await moveMapTo(
+        location,
+        zoom: 16,
+      );
 
       if (selectAsPickup) {
+        final requestId =
+            ++_selectionId;
+
         await reverseGeocode(
           location,
-          requestId: ++_selectionId,
+          requestId: requestId,
         );
       }
     } catch (_) {
@@ -153,33 +202,44 @@ class _MapScreenState extends State<MapScreen> {
   // SEARCH INPUT
   // ============================================================
 
-  void onSearchChanged(String value) {
+  void onSearchChanged(
+    String value,
+  ) {
+    if (_isSelectingResult) {
+      return;
+    }
+
     _debounce?.cancel();
 
     final query = value.trim();
 
+    // Empty search
     if (query.isEmpty) {
+      _searchId++;
+
       setState(() {
         suggestions = [];
         isSearching = false;
         selectedLocation = null;
-        selectedAddress = 'Choose a pickup location';
+        selectedAddress =
+            'Choose a pickup location';
       });
 
       return;
     }
 
-    // Remove previous pickup selection while searching.
     setState(() {
       suggestions = [];
+      isSearching = true;
       selectedLocation = null;
       selectedAddress =
           'Select a search result or tap the map';
-      isSearching = true;
     });
 
     _debounce = Timer(
-      const Duration(milliseconds: 450),
+      const Duration(
+        milliseconds: 450,
+      ),
       () {
         searchPlaces(query);
       },
@@ -187,13 +247,24 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   // ============================================================
-  // SEARCH
+  // MAPPLS AUTOSUGGEST
   // ============================================================
 
-  Future<void> searchPlaces(String query) async {
-    if (query.isEmpty) return;
+  Future<void> searchPlaces(
+    String query,
+  ) async {
+    final trimmedQuery = query.trim();
 
-    final int requestId = ++_searchId;
+    if (trimmedQuery.length < 2) {
+      return;
+    }
+
+    if (_isSelectingResult) {
+      return;
+    }
+
+    final int requestId =
+        ++_searchId;
 
     if (mounted) {
       setState(() {
@@ -202,18 +273,33 @@ class _MapScreenState extends State<MapScreen> {
     }
 
     try {
-      final results = await _searchPhoton(query);
+      final response =
+          await MapplsAutoSuggest(
+        query: trimmedQuery,
+        location: currentLocation,
+        tokenizeAddress: true,
+        responseLang: 'en',
+      ).callAutoSuggest();
 
-      if (!mounted || requestId != _searchId) {
+      // Ignore old requests.
+      if (!mounted ||
+          requestId != _searchId ||
+          _isSelectingResult) {
         return;
       }
+
+      final results =
+          response?.suggestedLocations ??
+              <ELocation>[];
 
       setState(() {
         suggestions = results;
         isSearching = false;
       });
     } catch (_) {
-      if (!mounted || requestId != _searchId) {
+      if (!mounted ||
+          requestId != _searchId ||
+          _isSelectingResult) {
         return;
       }
 
@@ -225,179 +311,97 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   // ============================================================
-  // PHOTON API
-  // ============================================================
-
-  Future<List<SearchResult>> _searchPhoton(
-    String query,
-  ) async {
-    final requestedHouseNumber =
-        _extractHouseNumber(query);
-
-    final bool detailedSearch =
-        requestedHouseNumber != null ||
-        query.contains(',');
-
-    final params = <String, String>{
-      'q': query,
-      'limit': '12',
-      'lang': 'en',
-      'countrycode': 'in',
-    };
-
-    // For a normal search, nearby results are useful.
-    //
-    // For detailed searches like:
-    // "FCA 275, Mukesh Colony, Ballabgarh"
-    //
-    // DO NOT bias towards current GPS.
-    if (!detailedSearch && currentLocation != null) {
-      params['lat'] =
-          currentLocation!.latitude.toString();
-
-      params['lon'] =
-          currentLocation!.longitude.toString();
-
-      params['zoom'] = '12';
-      params['location_bias_scale'] = '0.3';
-    }
-
-    final uri = Uri.https(
-      'photon.komoot.io',
-      '/api',
-      params,
-    );
-
-    final response = await http.get(
-      uri,
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'DriverOnDemand/1.0',
-      },
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception('Search failed');
-    }
-
-    final data =
-        jsonDecode(response.body)
-            as Map<String, dynamic>;
-
-    final features =
-        data['features'] as List<dynamic>? ?? [];
-
-    final allResults = <SearchResult>[];
-
-    for (final feature in features) {
-      try {
-        final result = SearchResult.fromJson(
-          feature as Map<String, dynamic>,
-        );
-
-        if (result.isValid) {
-          allResults.add(result);
-        }
-      } catch (_) {
-        // Ignore invalid Photon results.
-      }
-    }
-
-    // ==========================================================
-    // IMPORTANT:
-    //
-    // If user searches "275 Mukesh Colony", don't show
-    // "52 Mukesh Colony" as if it were the requested house.
-    // ==========================================================
-
-    if (requestedHouseNumber != null) {
-      final exactHouseResults =
-          allResults.where((result) {
-        return result.houseNumber != null &&
-            _numbersMatch(
-              result.houseNumber!,
-              requestedHouseNumber,
-            );
-      }).toList();
-
-      if (exactHouseResults.isNotEmpty) {
-        return exactHouseResults;
-      }
-
-      // Remove results that have a DIFFERENT house number.
-      //
-      // Example:
-      // User -> 275 Mukesh Colony
-      // Photon -> 52 Mukesh Colony
-      //
-      // 52 will NOT be shown.
-      return allResults.where((result) {
-        if (result.houseNumber == null) {
-          return true;
-        }
-
-        return !_numbersMatch(
-          result.houseNumber!,
-          requestedHouseNumber,
-        );
-      }).toList();
-    }
-
-    return allResults;
-  }
-
-  // ============================================================
-  // HOUSE NUMBER EXTRACTION
-  // ============================================================
-
-  String? _extractHouseNumber(String query) {
-    final match = RegExp(
-      r'\b(\d{1,5}(?:[\/\-]\d{1,5})?[A-Za-z]?)\b',
-    ).firstMatch(query);
-
-    if (match == null) {
-      return null;
-    }
-
-    return match.group(1);
-  }
-
-  bool _numbersMatch(
-    String a,
-    String b,
-  ) {
-    final first =
-        a.toLowerCase().replaceAll(' ', '');
-
-    final second =
-        b.toLowerCase().replaceAll(' ', '');
-
-    return first == second;
-  }
-
-  // ============================================================
   // SELECT SEARCH RESULT
   // ============================================================
 
-  void selectSearchResult(
-    SearchResult result,
-  ) {
+  Future<void> selectSearchResult(
+    ELocation result,
+  ) async {
+    final latitude = result.latitude;
+    final longitude = result.longitude;
+
+    if (latitude == null ||
+        longitude == null) {
+      return;
+    }
+
+    // Stop debounce timer.
+    _debounce?.cancel();
+
+    // Invalidate all previous searches.
+    _searchId++;
+
+    // Tell old requests that a result is being selected.
+    _isSelectingResult = true;
+
+    final location = LatLng(
+      latitude,
+      longitude,
+    );
+
+    final address =
+        _buildSearchAddress(result);
+
     _selectionId++;
 
-    setState(() {
-      selectedLocation = result.location;
-      selectedAddress = result.fullAddress;
-      suggestions = [];
+    if (!mounted) return;
 
-      searchController.text = result.fullAddress;
+    setState(() {
+      selectedLocation = location;
+      selectedAddress = address;
+      suggestions = [];
+      isSearching = false;
     });
+
+    // Update search box.
+    // This does NOT start a new user search.
+    searchController.value =
+        TextEditingValue(
+      text: address,
+      selection:
+          TextSelection.collapsed(
+        offset: address.length,
+      ),
+    );
 
     FocusScope.of(context).unfocus();
 
-    mapController.move(
-      result.location,
-      17,
+    // Move map to selected location.
+    await moveMapTo(
+      location,
+      zoom: 17,
     );
+
+    // Selection process finished.
+    _isSelectingResult = false;
+  }
+
+  String _buildSearchAddress(
+    ELocation result,
+  ) {
+    final placeName =
+        result.placeName?.trim();
+
+    final placeAddress =
+        result.placeAddress?.trim();
+
+    if (placeAddress != null &&
+        placeAddress.isNotEmpty) {
+      if (placeName != null &&
+          placeName.isNotEmpty &&
+          placeName != placeAddress) {
+        return '$placeName, $placeAddress';
+      }
+
+      return placeAddress;
+    }
+
+    if (placeName != null &&
+        placeName.isNotEmpty) {
+      return placeName;
+    }
+
+    return 'Selected location';
   }
 
   // ============================================================
@@ -407,20 +411,39 @@ class _MapScreenState extends State<MapScreen> {
   Future<void> selectMapLocation(
     LatLng location,
   ) async {
-    final int requestId = ++_selectionId;
+    _debounce?.cancel();
+    _searchId++;
+
+    _isSelectingResult = true;
+
+    final int requestId =
+        ++_selectionId;
+
+    if (!mounted) return;
 
     setState(() {
       selectedLocation = location;
-      selectedAddress = 'Finding address...';
+      selectedAddress =
+          'Finding address...';
       suggestions = [];
+      isSearching = false;
     });
 
+    searchController.clear();
+
     FocusScope.of(context).unfocus();
+
+    await moveMapTo(
+      location,
+      zoom: 17,
+    );
 
     await reverseGeocode(
       location,
       requestId: requestId,
     );
+
+    _isSelectingResult = false;
   }
 
   // ============================================================
@@ -432,59 +455,44 @@ class _MapScreenState extends State<MapScreen> {
     required int requestId,
   }) async {
     try {
-      final uri = Uri.https(
-        'photon.komoot.io',
-        '/reverse',
-        {
-          'lat': location.latitude.toString(),
-          'lon': location.longitude.toString(),
-          'lang': 'en',
-          'limit': '1',
-        },
-      );
-
-      final response = await http.get(
-        uri,
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'DriverOnDemand/1.0',
-        },
-      );
+      final response =
+          await MapplsReverseGeocode(
+        location: location,
+        lang: 'en',
+      ).callReverseGeocode();
 
       if (!mounted ||
           requestId != _selectionId) {
         return;
       }
 
-      if (response.statusCode != 200) {
+      final results =
+          response?.results ?? [];
+
+      if (results.isEmpty) {
         setState(() {
-          selectedAddress = 'Selected location';
+          selectedAddress =
+              'Selected location';
         });
 
         return;
       }
 
-      final data =
-          jsonDecode(response.body)
-              as Map<String, dynamic>;
+      final result = results.first;
 
-      final features =
-          data['features'] as List<dynamic>? ?? [];
+      final formatted =
+          result.formattedAddress?.trim();
 
-      if (features.isEmpty) {
-        setState(() {
-          selectedAddress = 'Selected location';
-        });
-
-        return;
-      }
-
-      final result = SearchResult.fromJson(
-        features.first as Map<String, dynamic>,
-      );
+      final address =
+          formatted != null &&
+                  formatted.isNotEmpty
+              ? formatted
+              : _buildReverseAddress(
+                  result,
+                );
 
       setState(() {
-        selectedAddress = result.fullAddress;
+        selectedAddress = address;
       });
     } catch (_) {
       if (!mounted ||
@@ -493,18 +501,55 @@ class _MapScreenState extends State<MapScreen> {
       }
 
       setState(() {
-        selectedAddress = 'Selected location';
+        selectedAddress =
+            'Selected location';
       });
     }
   }
 
+  String _buildReverseAddress(
+    ReverseGeocodePlace result,
+  ) {
+    final parts = <String>[];
+
+    void add(String? value) {
+      final text = value?.trim();
+
+      if (text == null ||
+          text.isEmpty) {
+        return;
+      }
+
+      if (!parts.contains(text)) {
+        parts.add(text);
+      }
+    }
+
+    add(result.poi);
+    add(result.houseName);
+    add(result.houseNumber);
+    add(result.street);
+    add(result.locality);
+    add(result.subLocality);
+    add(result.subDistrict);
+    add(result.city);
+    add(result.district);
+    add(result.state);
+    add(result.pincode);
+
+    return parts.isEmpty
+        ? 'Selected location'
+        : parts.join(', ');
+  }
+
   // ============================================================
-  // CONFIRM
+  // CONFIRM LOCATION
   // ============================================================
 
   void confirmLocation() {
     if (selectedLocation == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         const SnackBar(
           content: Text(
             'Please select a pickup location first.',
@@ -531,6 +576,7 @@ class _MapScreenState extends State<MapScreen> {
   void clearSearch() {
     _debounce?.cancel();
     _searchId++;
+    _isSelectingResult = false;
 
     searchController.clear();
 
@@ -538,7 +584,8 @@ class _MapScreenState extends State<MapScreen> {
       suggestions = [];
       isSearching = false;
       selectedLocation = null;
-      selectedAddress = 'Choose a pickup location';
+      selectedAddress =
+          'Choose a pickup location';
     });
   }
 
@@ -547,14 +594,9 @@ class _MapScreenState extends State<MapScreen> {
   // ============================================================
 
   @override
-  Widget build(BuildContext context) {
-    final mapCenter =
-        currentLocation ??
-        const LatLng(28.6139, 77.2090);
-
-    final hasSearchText =
-        searchController.text.trim().isNotEmpty;
-
+  Widget build(
+    BuildContext context,
+  ) {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -567,61 +609,69 @@ class _MapScreenState extends State<MapScreen> {
 
       body: Stack(
         children: [
+
           // ======================================================
-          // MAP
+          // MAPPLS MAP
           // ======================================================
 
-          FlutterMap(
-            mapController: mapController,
-
-            options: MapOptions(
-              initialCenter: mapCenter,
-              initialZoom: 14,
-              minZoom: 3,
-              maxZoom: 19,
-
-              onTap: (tapPosition, point) {
-                selectMapLocation(point);
-              },
+          MapplsMap(
+            initialCameraPosition:
+                const CameraPosition(
+              target: _defaultLocation,
+              zoom: 14,
             ),
 
-            children: [
-              TileLayer(
-                urlTemplate:
-                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+            myLocationEnabled: true,
 
-                userAgentPackageName:
-                    'com.driverondemand.app',
+            myLocationTrackingMode:
+                MyLocationTrackingMode.none,
 
-                maxZoom: 19,
-              ),
+            myLocationRenderMode:
+                MyLocationRenderMode.normal,
 
-              // Selected pickup pin
-              if (selectedLocation != null)
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: selectedLocation!,
-                      width: 55,
-                      height: 55,
+            onMapCreated:
+                onMapCreated,
 
-                      child: const Icon(
-                        Icons.location_pin,
-                        size: 55,
-                        color: Colors.red,
-                      ),
-                    ),
-                  ],
+            onMapClick: (
+              dynamic point,
+              LatLng coordinates,
+            ) {
+              selectMapLocation(
+                coordinates,
+              );
+            },
+
+            onMapError: (
+              int code,
+              String message,
+            ) {
+              debugPrint(
+                'Mappls map error $code: $message',
+              );
+            },
+          ),
+
+          // ======================================================
+          // CENTRE PIN
+          // ======================================================
+
+          IgnorePointer(
+            child: Center(
+              child: Padding(
+                padding:
+                    const EdgeInsets.only(
+                  bottom: 38,
                 ),
-
-              RichAttributionWidget(
-                attributions: [
-                  TextSourceAttribution(
-                    'OpenStreetMap contributors',
-                  ),
-                ],
+                child: Icon(
+                  Icons.location_pin,
+                  size: 52,
+                  color:
+                      selectedLocation != null
+                          ? Colors.red
+                          : Colors.black87,
+                ),
               ),
-            ],
+            ),
           ),
 
           // ======================================================
@@ -632,73 +682,96 @@ class _MapScreenState extends State<MapScreen> {
             top: 12,
             left: 12,
             right: 12,
-
             child: Column(
               children: [
+
+                // SEARCH BAR
                 Material(
                   elevation: 6,
-
                   borderRadius:
-                      BorderRadius.circular(15),
-
+                      BorderRadius.circular(
+                    15,
+                  ),
                   child: TextField(
-                    controller: searchController,
+                    controller:
+                        searchController,
 
-                    onChanged: onSearchChanged,
+                    onChanged:
+                        onSearchChanged,
 
-                    onSubmitted: (value) {
+                    onSubmitted: (
+                      value,
+                    ) {
                       _debounce?.cancel();
 
-                      if (value.trim().isNotEmpty) {
-                        searchPlaces(value.trim());
+                      final query =
+                          value.trim();
+
+                      if (query.isNotEmpty) {
+                        searchPlaces(
+                          query,
+                        );
                       }
                     },
 
-                    decoration: InputDecoration(
+                    decoration:
+                        InputDecoration(
                       hintText:
                           'Search pickup location',
 
                       prefixIcon:
-                          const Icon(Icons.search),
+                          const Icon(
+                        Icons.search,
+                      ),
 
-                      suffixIcon: isSearching
-                          ? const Padding(
-                              padding:
-                                  EdgeInsets.all(14),
-
-                              child: SizedBox(
-                                width: 18,
-                                height: 18,
-
-                                child:
-                                    CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                            )
-                          : hasSearchText
-                              ? IconButton(
-                                  icon: const Icon(
-                                    Icons.close,
+                      suffixIcon:
+                          isSearching
+                              ? const Padding(
+                                  padding:
+                                      EdgeInsets.all(
+                                    14,
                                   ),
-                                  onPressed:
-                                      clearSearch,
+                                  child:
+                                      SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child:
+                                        CircularProgressIndicator(
+                                      strokeWidth:
+                                          2,
+                                    ),
+                                  ),
                                 )
-                              : null,
+                              : searchController
+                                      .text
+                                      .trim()
+                                      .isNotEmpty
+                                  ? IconButton(
+                                      icon:
+                                          const Icon(
+                                        Icons.close,
+                                      ),
+                                      onPressed:
+                                          clearSearch,
+                                    )
+                                  : null,
 
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor:
+                          Colors.white,
 
                       contentPadding:
-                          const EdgeInsets.symmetric(
+                          const EdgeInsets
+                              .symmetric(
                         vertical: 16,
                       ),
 
                       border:
                           OutlineInputBorder(
                         borderRadius:
-                            BorderRadius.circular(15),
-
+                            BorderRadius.circular(
+                          15,
+                        ),
                         borderSide:
                             BorderSide.none,
                       ),
@@ -707,38 +780,42 @@ class _MapScreenState extends State<MapScreen> {
                 ),
 
                 // ==================================================
-                // RESULTS
+                // SEARCH RESULTS
                 // ==================================================
 
                 if (suggestions.isNotEmpty)
                   Container(
                     margin:
-                        const EdgeInsets.only(top: 6),
-
+                        const EdgeInsets.only(
+                      top: 6,
+                    ),
                     constraints:
                         const BoxConstraints(
                       maxHeight: 320,
                     ),
-
-                    decoration: BoxDecoration(
+                    decoration:
+                        BoxDecoration(
                       color: Colors.white,
-
                       borderRadius:
-                          BorderRadius.circular(15),
-
+                          BorderRadius.circular(
+                        15,
+                      ),
                       boxShadow: const [
                         BoxShadow(
                           blurRadius: 12,
-                          color: Colors.black26,
+                          color:
+                              Colors.black26,
                         ),
                       ],
                     ),
 
-                    child: ListView.separated(
+                    child:
+                        ListView.separated(
                       shrinkWrap: true,
 
                       padding:
-                          const EdgeInsets.symmetric(
+                          const EdgeInsets
+                              .symmetric(
                         vertical: 5,
                       ),
 
@@ -752,24 +829,41 @@ class _MapScreenState extends State<MapScreen> {
                       ),
 
                       itemBuilder:
-                          (context, index) {
+                          (
+                        context,
+                        index,
+                      ) {
                         final result =
-                            suggestions[index];
+                            suggestions[
+                                index];
+
+                        final title =
+                            result.placeName
+                                ?.trim();
+
+                        final subtitle =
+                            result.placeAddress
+                                ?.trim();
 
                         return ListTile(
                           leading:
                               const CircleAvatar(
                             backgroundColor:
-                                Color(0xFFF1F3F5),
-
+                                Color(
+                              0xFFF1F3F5,
+                            ),
                             child: Icon(
                               Icons.location_on,
-                              color: Colors.red,
+                              color:
+                                  Colors.red,
                             ),
                           ),
 
                           title: Text(
-                            result.name,
+                            title != null &&
+                                    title.isNotEmpty
+                                ? title
+                                : 'Location',
 
                             style:
                                 const TextStyle(
@@ -778,19 +872,24 @@ class _MapScreenState extends State<MapScreen> {
                             ),
                           ),
 
-                          subtitle: Text(
-                            result.fullAddress,
+                          subtitle:
+                              subtitle != null &&
+                                      subtitle
+                                          .isNotEmpty
+                                  ? Text(
+                                      subtitle,
+                                      maxLines: 2,
+                                      overflow:
+                                          TextOverflow
+                                              .ellipsis,
+                                    )
+                                  : null,
 
-                            maxLines: 2,
-
-                            overflow:
-                                TextOverflow.ellipsis,
-                          ),
-
-                          onTap: () =>
-                              selectSearchResult(
-                            result,
-                          ),
+                          onTap: () {
+                            selectSearchResult(
+                              result,
+                            );
+                          },
                         );
                       },
                     ),
@@ -801,61 +900,61 @@ class _MapScreenState extends State<MapScreen> {
                 // ==================================================
 
                 if (!isSearching &&
-                    hasSearchText &&
+                    !_isSelectingResult &&
+                    selectedLocation == null &&
+                    searchController
+                        .text
+                        .trim()
+                        .isNotEmpty &&
                     suggestions.isEmpty)
                   Container(
                     margin:
-                        const EdgeInsets.only(top: 6),
+                        const EdgeInsets.only(
+                      top: 6,
+                    ),
 
                     padding:
-                        const EdgeInsets.all(14),
+                        const EdgeInsets.all(
+                      14,
+                    ),
 
-                    decoration: BoxDecoration(
+                    decoration:
+                        BoxDecoration(
                       color: Colors.white,
-
                       borderRadius:
-                          BorderRadius.circular(15),
-
+                          BorderRadius.circular(
+                        15,
+                      ),
                       boxShadow: const [
                         BoxShadow(
                           blurRadius: 12,
-                          color: Colors.black26,
+                          color:
+                              Colors.black26,
                         ),
                       ],
                     ),
 
-                    child: const Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
-
+                    child: const Row(
                       children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.location_searching,
-                              color: Colors.orange,
-                            ),
 
-                            SizedBox(width: 8),
-
-                            Text(
-                              'Exact address not found',
-                              style: TextStyle(
-                                fontWeight:
-                                    FontWeight.bold,
-                              ),
-                            ),
-                          ],
+                        Icon(
+                          Icons
+                              .location_searching,
+                          color:
+                              Colors.orange,
                         ),
 
-                        SizedBox(height: 7),
+                        SizedBox(
+                          width: 8,
+                        ),
 
-                        Text(
-                          'Try a shorter area/street name, '
-                          'or tap the exact location on the map.',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey,
+                        Expanded(
+                          child: Text(
+                            'No matching location found. '
+                            'Try a shorter search or tap the map.',
+                            style: TextStyle(
+                              fontSize: 13,
+                            ),
                           ),
                         ),
                       ],
@@ -872,9 +971,10 @@ class _MapScreenState extends State<MapScreen> {
           Positioned(
             right: 16,
             bottom: 225,
-
-            child: FloatingActionButton(
-              heroTag: 'currentLocation',
+            child:
+                FloatingActionButton(
+              heroTag:
+                  'currentLocation',
 
               onPressed: () {
                 getCurrentLocation(
@@ -882,12 +982,25 @@ class _MapScreenState extends State<MapScreen> {
                 );
               },
 
-              backgroundColor: Colors.white,
-              foregroundColor: Colors.black,
+              backgroundColor:
+                  Colors.white,
 
-              child: const Icon(
-                Icons.my_location,
-              ),
+              foregroundColor:
+                  Colors.black,
+
+              child:
+                  isLoadingLocation
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child:
+                              CircularProgressIndicator(
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Icon(
+                          Icons.my_location,
+                        ),
             ),
           ),
 
@@ -900,26 +1013,30 @@ class _MapScreenState extends State<MapScreen> {
               left: 30,
               right: 30,
               bottom: 190,
-
               child: IgnorePointer(
                 child: Container(
                   padding:
-                      const EdgeInsets.symmetric(
+                      const EdgeInsets
+                          .symmetric(
                     horizontal: 14,
                     vertical: 10,
                   ),
 
-                  decoration: BoxDecoration(
+                  decoration:
+                      BoxDecoration(
                     color: Colors.black87,
-
                     borderRadius:
-                        BorderRadius.circular(12),
+                        BorderRadius.circular(
+                      12,
+                    ),
                   ),
 
                   child: const Text(
                     '📍 Search a location or tap the map '
-                    'to choose the exact pickup point',
-                    textAlign: TextAlign.center,
+                    'to choose the pickup point',
+
+                    textAlign:
+                        TextAlign.center,
 
                     style: TextStyle(
                       color: Colors.white,
@@ -931,7 +1048,7 @@ class _MapScreenState extends State<MapScreen> {
             ),
 
           // ======================================================
-          // BOTTOM CARD
+          // BOTTOM PICKUP CARD
           // ======================================================
 
           Positioned(
@@ -941,18 +1058,24 @@ class _MapScreenState extends State<MapScreen> {
 
             child: Container(
               padding:
-                  const EdgeInsets.all(18),
+                  const EdgeInsets.all(
+                18,
+              ),
 
-              decoration: BoxDecoration(
+              decoration:
+                  BoxDecoration(
                 color: Colors.white,
 
                 borderRadius:
-                    BorderRadius.circular(20),
+                    BorderRadius.circular(
+                  20,
+                ),
 
                 boxShadow: const [
                   BoxShadow(
                     blurRadius: 18,
-                    color: Colors.black26,
+                    color:
+                        Colors.black26,
                   ),
                 ],
               ),
@@ -961,9 +1084,11 @@ class _MapScreenState extends State<MapScreen> {
                 crossAxisAlignment:
                     CrossAxisAlignment.start,
 
-                mainAxisSize: MainAxisSize.min,
+                mainAxisSize:
+                    MainAxisSize.min,
 
                 children: [
+
                   const Text(
                     'Pickup location',
 
@@ -973,25 +1098,31 @@ class _MapScreenState extends State<MapScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 5),
+                  const SizedBox(
+                    height: 5,
+                  ),
 
                   Row(
                     crossAxisAlignment:
                         CrossAxisAlignment.start,
 
                     children: [
+
                       Icon(
                         Icons.location_on,
 
                         color:
-                            selectedLocation != null
+                            selectedLocation !=
+                                    null
                                 ? Colors.red
                                 : Colors.grey,
 
                         size: 22,
                       ),
 
-                      const SizedBox(width: 8),
+                      const SizedBox(
+                        width: 8,
+                      ),
 
                       Expanded(
                         child: Text(
@@ -1007,17 +1138,23 @@ class _MapScreenState extends State<MapScreen> {
                           maxLines: 3,
 
                           overflow:
-                              TextOverflow.ellipsis,
+                              TextOverflow
+                                  .ellipsis,
                         ),
                       ),
                     ],
                   ),
 
-                  // Show actual coordinates.
-                  if (selectedLocation != null)
+                  // ==================================================
+                  // COORDINATES
+                  // ==================================================
+
+                  if (selectedLocation !=
+                      null)
                     Padding(
                       padding:
-                          const EdgeInsets.only(
+                          const EdgeInsets
+                              .only(
                         left: 30,
                         top: 5,
                       ),
@@ -1026,35 +1163,49 @@ class _MapScreenState extends State<MapScreen> {
                         'Lat: ${selectedLocation!.latitude.toStringAsFixed(6)}  '
                         'Lng: ${selectedLocation!.longitude.toStringAsFixed(6)}',
 
-                        style: const TextStyle(
+                        style:
+                            const TextStyle(
                           fontSize: 11,
-                          color: Colors.grey,
+                          color:
+                              Colors.grey,
                         ),
                       ),
                     ),
 
-                  const SizedBox(height: 15),
+                  const SizedBox(
+                    height: 15,
+                  ),
+
+                  // ==================================================
+                  // CONFIRM BUTTON
+                  // ==================================================
 
                   SizedBox(
-                    width: double.infinity,
+                    width:
+                        double.infinity,
 
-                    child: ElevatedButton(
+                    child:
+                        ElevatedButton(
                       onPressed:
-                          selectedLocation == null
+                          selectedLocation ==
+                                  null
                               ? null
                               : confirmLocation,
 
                       style:
-                          ElevatedButton.styleFrom(
+                          ElevatedButton
+                              .styleFrom(
                         padding:
-                            const EdgeInsets.symmetric(
+                            const EdgeInsets
+                                .symmetric(
                           vertical: 15,
                         ),
 
                         shape:
                             RoundedRectangleBorder(
                           borderRadius:
-                              BorderRadius.circular(
+                              BorderRadius
+                                  .circular(
                             12,
                           ),
                         ),
@@ -1092,168 +1243,4 @@ class MapLocationResult {
     required this.location,
     required this.address,
   });
-}
-
-// ============================================================
-// SEARCH RESULT
-// ============================================================
-
-class SearchResult {
-  final String name;
-  final String fullAddress;
-  final String? houseNumber;
-  final LatLng location;
-
-  SearchResult({
-    required this.name,
-    required this.fullAddress,
-    required this.houseNumber,
-    required this.location,
-  });
-
-  bool get isValid {
-    return location.latitude >= -90 &&
-        location.latitude <= 90 &&
-        location.longitude >= -180 &&
-        location.longitude <= 180;
-  }
-
-  factory SearchResult.fromJson(
-    Map<String, dynamic> json,
-  ) {
-    final properties =
-        json['properties']
-                as Map<String, dynamic>? ??
-            {};
-
-    final geometry =
-        json['geometry']
-                as Map<String, dynamic>? ??
-            {};
-
-    final coordinates =
-        geometry['coordinates']
-                as List<dynamic>? ??
-            [];
-
-    if (coordinates.length < 2) {
-      throw Exception('Invalid coordinates');
-    }
-
-    final longitude =
-        (coordinates[0] as num).toDouble();
-
-    final latitude =
-        (coordinates[1] as num).toDouble();
-
-    final houseNumber =
-        _clean(properties['housenumber']);
-
-    final street =
-        _clean(properties['street']);
-
-    final locality =
-        _clean(properties['locality']);
-
-    final city =
-        _clean(properties['city']);
-
-    final district =
-        _clean(properties['district']);
-
-    final state =
-        _clean(properties['state']);
-
-    final postcode =
-        _clean(properties['postcode']);
-
-    final country =
-        _clean(properties['country']);
-
-    final name =
-        _firstNonEmpty([
-          properties['name'],
-          street,
-          locality,
-          city,
-          district,
-        ]) ??
-        'Selected location';
-
-    final parts = <String>[];
-
-    // House + street
-    if (houseNumber != null) {
-      if (street != null) {
-        parts.add(
-          '$houseNumber $street',
-        );
-      } else {
-        parts.add(houseNumber);
-      }
-    } else if (street != null) {
-      parts.add(street);
-    }
-
-    _addUnique(parts, locality);
-    _addUnique(parts, city);
-    _addUnique(parts, district);
-    _addUnique(parts, state);
-    _addUnique(parts, postcode);
-    _addUnique(parts, country);
-
-    final fullAddress =
-        parts.isEmpty
-            ? name
-            : parts.join(', ');
-
-    return SearchResult(
-      name: name,
-      fullAddress: fullAddress,
-      houseNumber: houseNumber,
-      location: LatLng(
-        latitude,
-        longitude,
-      ),
-    );
-  }
-
-  static String? _clean(dynamic value) {
-    if (value == null) return null;
-
-    final text = value.toString().trim();
-
-    if (text.isEmpty) return null;
-
-    return text;
-  }
-
-  static String? _firstNonEmpty(
-    List<dynamic> values,
-  ) {
-    for (final value in values) {
-      if (value == null) continue;
-
-      final text = value.toString().trim();
-
-      if (text.isNotEmpty) {
-        return text;
-      }
-    }
-
-    return null;
-  }
-
-  static void _addUnique(
-    List<String> list,
-    String? value,
-  ) {
-    if (value == null) return;
-
-    if (value.isEmpty) return;
-
-    if (!list.contains(value)) {
-      list.add(value);
-    }
-  }
 }

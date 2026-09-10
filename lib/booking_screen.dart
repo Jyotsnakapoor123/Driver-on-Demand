@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:mappls_gl/mappls_gl.dart';
 import 'map_screen.dart';
 
 class BookingScreen extends StatefulWidget {
