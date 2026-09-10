@@ -23,6 +23,47 @@ A simple booking experience where the user can book a driver instead of looking 
 
 ---
 
+## [2026-09-11] — Jyotsna Kapoor — My Bookings
+
+**Files touched:** `lib/booking_store.dart`, `lib/booking_summary_screen.dart`, `lib/main.dart`, `lib/my_bookings_screen.dart`
+
+**Commit(s):**
+- `83bdb3c` — feat: add my bookings screen
+
+**What was done:**
+- Confirmed booking ko app ke current session mein store karne ke liye `BookingStore` add kiya.
+- New `booking_store.dart` file create ki.
+- Booking details store karne ke liye Booking model add kiya.
+- `CONFIRM BOOKING` ke time booking ko `BookingStore` mein add kiya.
+- New `My Bookings` screen create ki.
+- Home Screen par `MY BOOKINGS` button add kiya.
+- My Bookings screen ko Home Screen se connect kiya.
+- Confirmed booking ka Booking ID, pickup location, date, time, duration aur total fare display kiya.
+- Booking status ko `Confirmed` ke roop mein display kiya.
+- Empty state add ki jab user ki koi booking nahi hoti.
+
+**Tested:**
+- Android emulator par `MY BOOKINGS` screen open karke empty state verify ki.
+- `No bookings yet` message correctly display hua.
+- New booking create karke `CONFIRM BOOKING` flow test kiya.
+- Booking Confirmation screen se `DONE` press kiya.
+- Home Screen se `MY BOOKINGS` open kiya.
+- Confirmed booking successfully My Bookings mein appear hui.
+- Booking ID correctly display hui.
+- Pickup location, date, time, duration aur total fare correctly display hue.
+- `Confirmed` status correctly display hua.
+- `flutter analyze` run kiya; koi compilation error nahi mila.
+
+**Decisions/Notes:**
+- Abhi bookings sirf current app session mein memory mein store ho rahi hain.
+- App completely restart hone par bookings currently persist nahi hoti.
+- Abhi database/backend integration nahi kiya gaya hai.
+- Upcoming, Completed aur Cancelled booking management abhi basic stage par hai.
+- Driver matching, driver assignment, payments aur live tracking abhi implement nahi kiye gaye hain.
+- Future mein `BookingStore` ko proper backend/database se replace kiya jayega.
+
+---
+
 ## [2026-09-11] — Jyotsna Kapoor — Booking Confirmation & Booking ID
 
 **Files touched:** `lib/booking_summary_screen.dart`, `lib/booking_confirmation_screen.dart`
