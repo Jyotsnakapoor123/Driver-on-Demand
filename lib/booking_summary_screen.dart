@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mappls_gl/mappls_gl.dart';
 import 'booking_confirmation_screen.dart';
+import 'booking_store.dart';
 
 class BookingSummaryScreen extends StatelessWidget {
   final LatLng pickupLocation;
@@ -140,6 +141,18 @@ class BookingSummaryScreen extends StatelessWidget {
 
                   final bookingId =
                       'DOD-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}-${now.millisecondsSinceEpoch.toString().substring(8)}';
+
+                  // Save booking in the current app session.
+                  BookingStore.addBooking(
+                    Booking(
+                      bookingId: bookingId,
+                      pickupAddress: pickupAddress,
+                      selectedDate: selectedDate,
+                      selectedTime: selectedTime,
+                      hours: hours,
+                      totalFare: totalFare,
+                    ),
+                  );
 
                   Navigator.push(
                     context,

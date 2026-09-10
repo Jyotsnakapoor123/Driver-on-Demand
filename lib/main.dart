@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'booking_screen.dart';
+import 'my_bookings_screen.dart';
 
 void main() {
   runApp(const DriverOnDemandApp());
@@ -51,15 +52,29 @@ class HomeScreen extends StatelessWidget {
             const SizedBox(height: 30),
 
             ElevatedButton(
-             onPressed: () {
-             Navigator.push(
-             context,
-             MaterialPageRoute(
-             builder: (context) => const BookingScreen(),
-              ),
-             );
-             },
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const BookingScreen(),
+                  ),
+                );
+              },
               child: const Text('BOOK A DRIVER'),
+            ),
+
+            const SizedBox(height: 12),
+
+            OutlinedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const MyBookingsScreen(),
+                  ),
+                );
+              },
+              child: const Text('MY BOOKINGS'),
             ),
           ],
         ),
