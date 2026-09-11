@@ -1,22 +1,22 @@
 import 'package:flutter/material.dart';
-import 'auth_storage.dart';
-import 'profile_storage.dart';
+import 'driver_auth_storage.dart';
+import 'driver_profile_storage.dart';
 
-class AuthScreen extends StatefulWidget {
+class DriverAuthScreen extends StatefulWidget {
   final VoidCallback onAuthSuccess;
-  final VoidCallback onDriverLogin;
+  final VoidCallback onBackToCustomer;
 
-  const AuthScreen({
+  const DriverAuthScreen({
     super.key,
     required this.onAuthSuccess,
-    required this.onDriverLogin,
+    required this.onBackToCustomer,
   });
 
   @override
-  State<AuthScreen> createState() => _AuthScreenState();
+  State<DriverAuthScreen> createState() => _DriverAuthScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen> {
+class _DriverAuthScreenState extends State<DriverAuthScreen> {
   bool isLogin = true;
 
   final _loginEmailController = TextEditingController();
@@ -32,11 +32,13 @@ class _AuthScreenState extends State<AuthScreen> {
   void dispose() {
     _loginEmailController.dispose();
     _loginPasswordController.dispose();
+
     _nameController.dispose();
     _signupEmailController.dispose();
     _phoneController.dispose();
     _signupPasswordController.dispose();
     _confirmPasswordController.dispose();
+
     super.dispose();
   }
 
@@ -59,7 +61,7 @@ class _AuthScreenState extends State<AuthScreen> {
       return;
     }
 
-    final success = await AuthStorage.login(
+    final success = await DriverAuthStorage.login(
       email: email,
       password: password,
     );
@@ -107,25 +109,27 @@ class _AuthScreenState extends State<AuthScreen> {
       return;
     }
 
-    final accountExists = await AuthStorage.hasAccount();
+    final accountExists = await DriverAuthStorage.hasAccount(
+  email: email,
+);
 
-    if (!mounted) {
-      return;
-    }
+if (!mounted) {
+  return;
+}
 
-    if (accountExists) {
-      _showError(
-        'An account already exists. Please login.',
-      );
-      return;
-    }
+if (accountExists) {
+  _showError(
+    'An account with this email already exists. Please login.',
+  );
+  return;
+}
 
-    await AuthStorage.signup(
+    await DriverAuthStorage.signup(
       email: email,
       password: password,
     );
 
-    await ProfileStorage.saveProfile(
+    await DriverProfileStorage.saveProfile(
       name: name,
       email: email,
       phone: phone,
@@ -155,7 +159,17 @@ class _AuthScreenState extends State<AuthScreen> {
           padding: const EdgeInsets.all(24),
           child: Column(
             children: [
-              const SizedBox(height: 40),
+              const SizedBox(height: 25),
+
+              Align(
+                alignment: Alignment.centerLeft,
+                child: IconButton(
+                  onPressed: widget.onBackToCustomer,
+                  icon: const Icon(Icons.arrow_back),
+                ),
+              ),
+
+              const SizedBox(height: 10),
 
               Container(
                 width: 82,
@@ -174,7 +188,7 @@ class _AuthScreenState extends State<AuthScreen> {
               const SizedBox(height: 20),
 
               const Text(
-                'Driver On Demand',
+                'Driver Portal',
                 style: TextStyle(
                   fontSize: 27,
                   fontWeight: FontWeight.bold,
@@ -185,8 +199,9 @@ class _AuthScreenState extends State<AuthScreen> {
 
               Text(
                 isLogin
-                    ? 'Login to continue'
-                    : 'Create your account',
+                    ? 'Login to continue as a driver'
+                    : 'Create your driver account',
+                textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 15,
                   color: Colors.grey,
@@ -236,17 +251,12 @@ class _AuthScreenState extends State<AuthScreen> {
               else
                 _buildSignupForm(),
 
-              const SizedBox(height: 28),
+              const SizedBox(height: 24),
 
-              const Divider(),
-
-              const SizedBox(height: 12),
-
-              TextButton.icon(
-                onPressed: widget.onDriverLogin,
-                icon: const Icon(Icons.drive_eta_outlined),
-                label: const Text(
-                  'Are you a driver? Driver Login',
+              TextButton(
+                onPressed: widget.onBackToCustomer,
+                child: const Text(
+                  'Are you a customer? Go to Customer Login',
                 ),
               ),
             ],
@@ -280,7 +290,7 @@ class _AuthScreenState extends State<AuthScreen> {
         const SizedBox(height: 28),
 
         _PrimaryButton(
-          title: 'LOGIN',
+          title: 'DRIVER LOGIN',
           onPressed: _login,
         ),
       ],
@@ -292,7 +302,7 @@ class _AuthScreenState extends State<AuthScreen> {
       children: [
         _InputField(
           controller: _nameController,
-          label: 'Name',
+          label: 'Full Name',
           hint: 'Enter your name',
           icon: Icons.person_outline,
         ),
@@ -340,7 +350,7 @@ class _AuthScreenState extends State<AuthScreen> {
         const SizedBox(height: 28),
 
         _PrimaryButton(
-          title: 'CREATE ACCOUNT',
+          title: 'CREATE DRIVER ACCOUNT',
           onPressed: _signup,
         ),
       ],

@@ -6,6 +6,10 @@ import 'booking_screen.dart';
 import 'my_bookings_screen.dart';
 import 'profile_screen.dart';
 
+import 'driver_auth_screen.dart';
+import 'driver_auth_storage.dart';
+import 'driver_home_screen.dart';
+
 void main() {
   runApp(const DriverOnDemandApp());
 }
@@ -37,42 +41,75 @@ class AuthGate extends StatefulWidget {
 }
 
 class _AuthGateState extends State<AuthGate> {
-  bool? isLoggedIn;
+  bool? customerLoggedIn;
+  bool? driverLoggedIn;
+
+  bool isDriverMode = false;
 
   @override
   void initState() {
     super.initState();
-    checkLogin();
+    checkLoginStatus();
   }
 
-  Future<void> checkLogin() async {
-    final loggedIn = await AuthStorage.isLoggedIn();
+  Future<void> checkLoginStatus() async {
+    final customerStatus = await AuthStorage.isLoggedIn();
+    final driverStatus = await DriverAuthStorage.isLoggedIn();
 
     if (!mounted) {
       return;
     }
 
     setState(() {
-      isLoggedIn = loggedIn;
+      customerLoggedIn = customerStatus;
+      driverLoggedIn = driverStatus;
     });
   }
 
-  void handleLogin() {
+  void openDriverLogin() {
     setState(() {
-      isLoggedIn = true;
+      isDriverMode = true;
     });
   }
 
-  void handleLogout() {
+  void openCustomerLogin() {
     setState(() {
-      isLoggedIn = false;
+      isDriverMode = false;
+    });
+  }
+
+  void handleCustomerLogin() {
+    setState(() {
+      customerLoggedIn = true;
+      isDriverMode = false;
+    });
+  }
+
+  void handleDriverLogin() {
+    setState(() {
+      driverLoggedIn = true;
+      isDriverMode = true;
+    });
+  }
+
+  void handleCustomerLogout() {
+    setState(() {
+      customerLoggedIn = false;
+      isDriverMode = false;
+    });
+  }
+
+  void handleDriverLogout() {
+    setState(() {
+      driverLoggedIn = false;
+      isDriverMode = true;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // Checking login status
-    if (isLoggedIn == null) {
+    // Initial loading
+    if (customerLoggedIn == null || driverLoggedIn == null) {
       return const Scaffold(
         body: Center(
           child: CircularProgressIndicator(),
@@ -80,16 +117,32 @@ class _AuthGateState extends State<AuthGate> {
       );
     }
 
-    // User is logged out
-    if (!isLoggedIn!) {
-      return AuthScreen(
-        onAuthSuccess: handleLogin,
+    // Driver is logged in
+    if (isDriverMode && driverLoggedIn!) {
+      return DriverHomeScreen(
+        onLogout: handleDriverLogout,
       );
     }
 
-    // User is logged in
-    return HomeScreen(
-      onLogout: handleLogout,
+    // Driver login/signup screen
+    if (isDriverMode && !driverLoggedIn!) {
+      return DriverAuthScreen(
+        onAuthSuccess: handleDriverLogin,
+        onBackToCustomer: openCustomerLogin,
+      );
+    }
+
+    // Customer is logged in
+    if (customerLoggedIn!) {
+      return HomeScreen(
+        onLogout: handleCustomerLogout,
+      );
+    }
+
+    // Customer login/signup
+    return AuthScreen(
+      onAuthSuccess: handleCustomerLogin,
+      onDriverLogin: openDriverLogin,
     );
   }
 }
