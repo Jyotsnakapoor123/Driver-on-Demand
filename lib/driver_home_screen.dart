@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'driver_auth_storage.dart';
+import 'driver_profile_screen.dart';
 
 class DriverHomeScreen extends StatelessWidget {
   final VoidCallback onLogout;
@@ -10,6 +11,36 @@ class DriverHomeScreen extends StatelessWidget {
   });
 
   Future<void> _logout(BuildContext context) async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Logout'),
+          content: const Text(
+            'Are you sure you want to logout?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, false);
+              },
+              child: const Text('CANCEL'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, true);
+              },
+              child: const Text('LOGOUT'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldLogout != true) {
+      return;
+    }
+
     await DriverAuthStorage.logout();
 
     if (!context.mounted) {
@@ -17,6 +48,15 @@ class DriverHomeScreen extends StatelessWidget {
     }
 
     onLogout();
+  }
+
+  void _openProfile(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const DriverProfileScreen(),
+      ),
+    );
   }
 
   @override
@@ -32,6 +72,14 @@ class DriverHomeScreen extends StatelessWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
+        actions: [
+          IconButton(
+            onPressed: () => _openProfile(context),
+            icon: const Icon(
+              Icons.person_outline,
+            ),
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),
@@ -66,7 +114,7 @@ class DriverHomeScreen extends StatelessWidget {
             const SizedBox(height: 8),
 
             const Text(
-              'Your driver dashboard will appear here.',
+              'Manage your driver account from here.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 16,
@@ -74,33 +122,49 @@ class DriverHomeScreen extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 40),
+            const SizedBox(height: 35),
 
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Driver Account',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+            GestureDetector(
+              onTap: () => _openProfile(context),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.person_outline,
+                      size: 30,
                     ),
-                  ),
-                  SizedBox(height: 12),
-                  Text(
-                    'Profile, verification and availability will be added next.',
-                    style: TextStyle(
-                      color: Colors.grey,
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Driver Profile',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 6),
+                          Text(
+                            'View and edit your personal information.',
+                            style: TextStyle(
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                    Icon(Icons.chevron_right),
+                  ],
+                ),
               ),
             ),
 
@@ -111,7 +175,12 @@ class DriverHomeScreen extends StatelessWidget {
               height: 52,
               child: OutlinedButton(
                 onPressed: () => _logout(context),
-                child: const Text('LOGOUT'),
+                child: const Text(
+                  'LOGOUT',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
 
