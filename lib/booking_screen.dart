@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mappls_gl/mappls_gl.dart';
 import 'map_screen.dart';
-import 'booking_summary_screen.dart';
+
 import 'available_drivers_screen.dart';
 
 class BookingScreen extends StatefulWidget {
@@ -85,49 +85,57 @@ class _BookingScreenState extends State<BookingScreen> {
   // ----------------------------------------------------------
 
   void findDriver() {
-  if (selectedLocation == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Please select your pickup location first.',
+    if (selectedLocation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please select your pickup location first.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (selectedDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please select the date.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (selectedTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please select the time.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final String formattedDate =
+        '${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}';
+
+    final String formattedTime =
+        selectedTime!.format(context);
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AvailableDriversScreen(
+          pickupAddress: selectedAddress!,
+          hours: hours,
+          selectedDate: formattedDate,
+          selectedTime: formattedTime,
         ),
       ),
     );
-    return;
   }
-
-  if (selectedDate == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Please select the date.',
-        ),
-      ),
-    );
-    return;
-  }
-
-  if (selectedTime == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Please select the time.',
-        ),
-      ),
-    );
-    return;
-  }
-
-  Navigator.push(
-  context,
-  MaterialPageRoute(
-    builder: (context) => AvailableDriversScreen(
-      pickupAddress: selectedAddress!,
-      hours: hours,
-    ),
-  ),
-);
-}
 
   // ----------------------------------------------------------
   // UI
@@ -154,6 +162,7 @@ class _BookingScreenState extends State<BookingScreen> {
 
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+
           children: [
             const Text(
               'Book a verified driver',
@@ -223,17 +232,15 @@ class _BookingScreenState extends State<BookingScreen> {
                       child: Column(
                         crossAxisAlignment:
                             CrossAxisAlignment.start,
+
                         children: [
                           Text(
                             selectedLocation == null
                                 ? 'Choose pickup location'
                                 : 'Pickup location',
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 13,
-                              color:
-                                  selectedLocation == null
-                                      ? Colors.grey
-                                      : Colors.grey,
+                              color: Colors.grey,
                             ),
                           ),
 
@@ -247,8 +254,7 @@ class _BookingScreenState extends State<BookingScreen> {
                                   TextOverflow.ellipsis,
                               style: const TextStyle(
                                 fontSize: 15,
-                                fontWeight:
-                                    FontWeight.bold,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ],
@@ -355,7 +361,9 @@ class _BookingScreenState extends State<BookingScreen> {
                             });
                           }
                         },
-                        icon: const Icon(Icons.remove),
+                        icon: const Icon(
+                          Icons.remove,
+                        ),
                       ),
 
                       Text(
@@ -372,7 +380,9 @@ class _BookingScreenState extends State<BookingScreen> {
                             hours++;
                           });
                         },
-                        icon: const Icon(Icons.add),
+                        icon: const Icon(
+                          Icons.add,
+                        ),
                       ),
                     ],
                   ),

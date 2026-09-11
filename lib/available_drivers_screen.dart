@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
+import 'booking_request_storage.dart';
 
 class AvailableDriversScreen extends StatefulWidget {
   final String pickupAddress;
   final int hours;
+  final String selectedDate;
+  final String selectedTime;
 
   const AvailableDriversScreen({
     super.key,
     required this.pickupAddress,
     required this.hours,
+    required this.selectedDate,
+    required this.selectedTime,
   });
 
   @override
@@ -426,6 +431,278 @@ class _AvailableDriversScreenState extends State<AvailableDriversScreen> {
     );
   }
 
+  void showRequestConfirmation(Map<String, dynamic> driver) {
+    final driverName = driver['name'] as String;
+    final rating = driver['rating'] as double;
+    final hourlyRate = driver['rate'] as int;
+    final totalFare = hourlyRate * widget.hours;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(24),
+        ),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 22),
+
+                const Text(
+                  'Confirm Driver',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(height: 18),
+
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 27,
+                      backgroundColor: Colors.black12,
+                      child: Text(
+                        driverName[0],
+                        style: const TextStyle(
+                          fontSize: 21,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(width: 12),
+
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  driverName,
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              const Icon(
+                                Icons.verified,
+                                size: 17,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 5),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.star,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$rating',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              const Text(
+                                'Verified driver',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 22),
+
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Column(
+                    children: [
+                      _FareRow(
+                        label: 'Hourly charge',
+                        value: '₹$hourlyRate/hr',
+                      ),
+                      const SizedBox(height: 10),
+                      _FareRow(
+                        label: 'Duration',
+                        value: '${widget.hours} hours',
+                      ),
+                      const Divider(height: 24),
+                      _FareRow(
+                        label: 'Estimated fare',
+                        value: '₹$totalFare',
+                        bold: true,
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 14),
+
+                _DetailRow(
+                  icon: Icons.location_on_outlined,
+                  label: widget.pickupAddress,
+                ),
+
+                const SizedBox(height: 10),
+
+                _DetailRow(
+                  icon: Icons.calendar_today_outlined,
+                  label:
+                      '${widget.selectedDate} • ${widget.selectedTime}',
+                ),
+
+                const SizedBox(height: 22),
+
+                const Text(
+                  'The driver will receive your booking request and can accept or reject it.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey,
+                  ),
+                ),
+
+                const SizedBox(height: 18),
+
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      await BookingRequestStorage.saveRequest(
+                        driverName: driverName,
+                        driverRating: rating,
+                        hourlyRate: hourlyRate,
+                        hours: widget.hours,
+                        pickupAddress: widget.pickupAddress,
+                        selectedDate: widget.selectedDate,
+                        selectedTime: widget.selectedTime,
+                      );
+
+                      if (!context.mounted) return;
+
+                      Navigator.pop(context);
+
+                      showRequestSent();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text(
+                      'SEND REQUEST',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void showRequestSent() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircleAvatar(
+                radius: 32,
+                child: Icon(
+                  Icons.check,
+                  size: 34,
+                ),
+              ),
+
+              const SizedBox(height: 18),
+
+              const Text(
+                'Request Sent',
+                style: TextStyle(
+                  fontSize: 21,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              const Text(
+                'Your booking request has been sent to the driver. You will be notified when the driver responds.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.grey,
+                  height: 1.4,
+                ),
+              ),
+
+              const SizedBox(height: 22),
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  child: const Text('OK'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final availableDrivers = getFilteredDrivers();
@@ -637,6 +914,9 @@ class _AvailableDriversScreenState extends State<AvailableDriversScreen> {
                     reviews: driver['reviews'] as int,
                     distance: driver['distance'] as double,
                     rate: driver['rate'] as int,
+                    onRequest: () {
+                      showRequestConfirmation(driver);
+                    },
                   ),
                 ),
               ),
@@ -674,6 +954,7 @@ class _DriverCard extends StatelessWidget {
   final int reviews;
   final double distance;
   final int rate;
+  final VoidCallback onRequest;
 
   const _DriverCard({
     required this.name,
@@ -681,6 +962,7 @@ class _DriverCard extends StatelessWidget {
     required this.reviews,
     required this.distance,
     required this.rate,
+    required this.onRequest,
   });
 
   @override
@@ -812,8 +1094,97 @@ class _DriverCard extends StatelessWidget {
               ),
             ],
           ),
+
+          const SizedBox(height: 16),
+
+          SizedBox(
+            width: double.infinity,
+            height: 46,
+            child: ElevatedButton(
+              onPressed: onRequest,
+              style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'REQUEST DRIVER',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
+    );
+  }
+}
+
+class _FareRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool bold;
+
+  const _FareRow({
+    required this.label,
+    required this.value,
+    this.bold = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: bold ? Colors.black : Colors.grey.shade600,
+            fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: bold ? 18 : 14,
+            fontWeight: bold ? FontWeight.bold : FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _DetailRow({
+    required this.icon,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          icon,
+          size: 19,
+        ),
+        const SizedBox(width: 9),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
