@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'profile_storage.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -8,9 +9,31 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  String userName = 'User Name';
-  String userEmail = 'user@email.com';
-  String userPhone = 'Not added';
+  String userName = ProfileStorage.defaultName;
+  String userEmail = ProfileStorage.defaultEmail;
+  String userPhone = ProfileStorage.defaultPhone;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    final profile = await ProfileStorage.loadProfile();
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      userName = profile['name'] ?? ProfileStorage.defaultName;
+      userEmail = profile['email'] ?? ProfileStorage.defaultEmail;
+
+      final phone = profile['phone'] ?? '';
+      userPhone = phone.isEmpty ? 'Not added' : phone;
+    });
+  }
 
   Future<void> _openEditProfile() async {
     final updatedProfile = await Navigator.push<Map<String, String>>(
@@ -25,11 +48,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
 
     if (updatedProfile != null) {
-      setState(() {
-        userName = updatedProfile['name'] ?? userName;
-        userEmail = updatedProfile['email'] ?? userEmail;
+      final name = updatedProfile['name'] ?? userName;
+      final email = updatedProfile['email'] ?? userEmail;
+      final phone = updatedProfile['phone'] ?? '';
 
-        final phone = updatedProfile['phone'] ?? '';
+      await ProfileStorage.saveProfile(
+        name: name,
+        email: email,
+        phone: phone,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        userName = name;
+        userEmail = email;
         userPhone = phone.isEmpty ? 'Not added' : phone;
       });
     }
