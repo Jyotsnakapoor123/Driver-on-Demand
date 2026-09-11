@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'profile_storage.dart';
 import 'auth_storage.dart';
+import 'my_bookings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final VoidCallback onLogout;
@@ -223,11 +224,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             _MenuCard(
               icon: Icons.calendar_month_outlined,
-              title: 'My Bookings',
-              onTap: () {
-                Navigator.pop(context);
-              },
-            ),
+             title: 'My Bookings',
+             onTap: () {
+              Navigator.push(
+              context,
+             MaterialPageRoute(
+               builder: (_) => const MyBookingsScreen(),
+               ),
+            );
+        },
+    ),
 
             const SizedBox(height: 12),
 
