@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'booking_screen.dart';
 import 'my_bookings_screen.dart';
+import 'profile_screen.dart';
 
 void main() {
   runApp(const DriverOnDemandApp());
@@ -27,6 +28,20 @@ class HomeScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Driver On Demand'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.person_outline),
+            tooltip: 'Profile',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ProfileScreen(),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: Center(
         child: Column(
