@@ -1,14 +1,67 @@
 import 'package:flutter/material.dart';
+
 import 'driver_auth_storage.dart';
+import 'driver_availability_storage.dart';
 import 'driver_profile_screen.dart';
 
-class DriverHomeScreen extends StatelessWidget {
+class DriverHomeScreen extends StatefulWidget {
   final VoidCallback onLogout;
 
   const DriverHomeScreen({
     super.key,
     required this.onLogout,
   });
+
+  @override
+  State<DriverHomeScreen> createState() => _DriverHomeScreenState();
+}
+
+class _DriverHomeScreenState extends State<DriverHomeScreen> {
+  bool isAvailable = false;
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAvailability();
+  }
+
+  Future<void> _loadAvailability() async {
+    final available =
+        await DriverAvailabilityStorage.isAvailable();
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      isAvailable = available;
+      isLoading = false;
+    });
+  }
+
+  Future<void> _toggleAvailability(bool value) async {
+    setState(() {
+      isAvailable = value;
+    });
+
+    await DriverAvailabilityStorage.setAvailable(value);
+
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          value
+              ? 'You are now available for rides.'
+              : 'You are now offline.',
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
 
   Future<void> _logout(BuildContext context) async {
     final shouldLogout = await showDialog<bool>(
@@ -47,7 +100,7 @@ class DriverHomeScreen extends StatelessWidget {
       return;
     }
 
-    onLogout();
+    widget.onLogout();
   }
 
   void _openProfile(BuildContext context) {
@@ -122,8 +175,129 @@ class DriverHomeScreen extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 35),
+            const SizedBox(height: 30),
 
+            // Availability Card
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 46,
+                        height: 46,
+                        decoration: BoxDecoration(
+                          color: isAvailable
+                              ? Colors.green.shade100
+                              : Colors.grey.shade200,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          isAvailable
+                              ? Icons.check_circle_outline
+                              : Icons.power_settings_new,
+                          color: isAvailable
+                              ? Colors.green.shade700
+                              : Colors.grey.shade700,
+                        ),
+                      ),
+
+                      const SizedBox(width: 14),
+
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Driver Availability',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Choose whether you want to receive ride requests.',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      if (isLoading)
+                        const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                          ),
+                        )
+                      else
+                        Switch(
+                          value: isAvailable,
+                          onChanged: _toggleAvailability,
+                        ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 14,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isAvailable
+                          ? Colors.green.shade50
+                          : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isAvailable
+                              ? Icons.circle
+                              : Icons.circle_outlined,
+                          size: 12,
+                          color: isAvailable
+                              ? Colors.green.shade700
+                              : Colors.grey.shade600,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          isAvailable
+                              ? 'You are AVAILABLE for rides'
+                              : 'You are currently OFFLINE',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: isAvailable
+                                ? Colors.green.shade700
+                                : Colors.grey.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Driver Profile
             GestureDetector(
               onTap: () => _openProfile(context),
               child: Container(
