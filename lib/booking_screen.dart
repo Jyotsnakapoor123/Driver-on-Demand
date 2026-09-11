@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mappls_gl/mappls_gl.dart';
 import 'map_screen.dart';
 import 'booking_summary_screen.dart';
+import 'available_drivers_screen.dart';
 
 class BookingScreen extends StatefulWidget {
   const BookingScreen({super.key});
@@ -118,18 +119,14 @@ class _BookingScreenState extends State<BookingScreen> {
   }
 
   Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => BookingSummaryScreen(
-        pickupLocation: selectedLocation!,
-        pickupAddress: selectedAddress!,
-        selectedDate: selectedDate!,
-        selectedTime: selectedTime!,
-        hours: hours,
-        hourlyRate: hourlyRate,
-      ),
+  context,
+  MaterialPageRoute(
+    builder: (context) => AvailableDriversScreen(
+      pickupAddress: selectedAddress!,
+      hours: hours,
     ),
-  );
+  ),
+);
 }
 
   // ----------------------------------------------------------
@@ -479,7 +476,7 @@ class _BookingScreenState extends State<BookingScreen> {
                 ),
 
                 child: const Text(
-                  'REVIEW BOOKING',
+                  'FIND AVAILABLE DRIVERS',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
