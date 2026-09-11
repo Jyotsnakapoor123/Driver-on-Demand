@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-class AvailableDriversScreen extends StatelessWidget {
+class AvailableDriversScreen extends StatefulWidget {
   final String pickupAddress;
   final int hours;
 
@@ -9,6 +9,18 @@ class AvailableDriversScreen extends StatelessWidget {
     required this.pickupAddress,
     required this.hours,
   });
+
+  @override
+  State<AvailableDriversScreen> createState() =>
+      _AvailableDriversScreenState();
+}
+
+class _AvailableDriversScreenState extends State<AvailableDriversScreen> {
+  String sortBy = 'Recommended';
+
+  double? minimumRating;
+  int? maximumRate;
+  double? maximumDistance;
 
   final List<Map<String, dynamic>> drivers = const [
     {
@@ -49,18 +61,383 @@ class AvailableDriversScreen extends StatelessWidget {
     },
   ];
 
+  List<Map<String, dynamic>> getFilteredDrivers() {
+    final filtered = drivers.where((driver) {
+      final isAvailable = driver['available'] == true;
+      final isVerified = driver['verified'] == true;
+
+      if (!isAvailable || !isVerified) {
+        return false;
+      }
+
+      if (minimumRating != null &&
+          (driver['rating'] as double) < minimumRating!) {
+        return false;
+      }
+
+      if (maximumRate != null &&
+          (driver['rate'] as int) > maximumRate!) {
+        return false;
+      }
+
+      if (maximumDistance != null &&
+          (driver['distance'] as double) > maximumDistance!) {
+        return false;
+      }
+
+      return true;
+    }).toList();
+
+    switch (sortBy) {
+      case 'Highest Rated':
+        filtered.sort(
+          (a, b) =>
+              (b['rating'] as double).compareTo(a['rating'] as double),
+        );
+        break;
+
+      case 'Nearest':
+        filtered.sort(
+          (a, b) =>
+              (a['distance'] as double).compareTo(b['distance'] as double),
+        );
+        break;
+
+      case 'Lowest Charge':
+        filtered.sort(
+          (a, b) => (a['rate'] as int).compareTo(b['rate'] as int),
+        );
+        break;
+
+      case 'Recommended':
+      default:
+        break;
+    }
+
+    return filtered;
+  }
+
+  void openSortSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(22),
+        ),
+      ),
+      builder: (context) {
+        final options = [
+          'Recommended',
+          'Highest Rated',
+          'Nearest',
+          'Lowest Charge',
+        ];
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Sort drivers by',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ...options.map(
+                  (option) => RadioListTile<String>(
+                    value: option,
+                    groupValue: sortBy,
+                    title: Text(option),
+                    onChanged: (value) {
+                      if (value == null) return;
+
+                      setState(() {
+                        sortBy = value;
+                      });
+
+                      Navigator.pop(context);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void openFilterSheet() {
+    double? tempRating = minimumRating;
+    int? tempMaximumRate = maximumRate;
+    double? tempMaximumDistance = maximumDistance;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(22),
+        ),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  20,
+                  20,
+                  MediaQuery.of(context).viewInsets.bottom + 24,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Filter drivers',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              setSheetState(() {
+                                tempRating = null;
+                                tempMaximumRate = null;
+                                tempMaximumDistance = null;
+                              });
+                            },
+                            child: const Text('Clear'),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      const Text(
+                        'Minimum rating',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          ChoiceChip(
+                            label: const Text('Any'),
+                            selected: tempRating == null,
+                            onSelected: (_) {
+                              setSheetState(() {
+                                tempRating = null;
+                              });
+                            },
+                          ),
+                          ChoiceChip(
+                            label: const Text('4.0+'),
+                            selected: tempRating == 4.0,
+                            onSelected: (_) {
+                              setSheetState(() {
+                                tempRating = 4.0;
+                              });
+                            },
+                          ),
+                          ChoiceChip(
+                            label: const Text('4.5+'),
+                            selected: tempRating == 4.5,
+                            onSelected: (_) {
+                              setSheetState(() {
+                                tempRating = 4.5;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 22),
+
+                      const Text(
+                        'Maximum hourly charge',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          ChoiceChip(
+                            label: const Text('Any'),
+                            selected: tempMaximumRate == null,
+                            onSelected: (_) {
+                              setSheetState(() {
+                                tempMaximumRate = null;
+                              });
+                            },
+                          ),
+                          ChoiceChip(
+                            label: const Text('₹250/hr'),
+                            selected: tempMaximumRate == 250,
+                            onSelected: (_) {
+                              setSheetState(() {
+                                tempMaximumRate = 250;
+                              });
+                            },
+                          ),
+                          ChoiceChip(
+                            label: const Text('₹300/hr'),
+                            selected: tempMaximumRate == 300,
+                            onSelected: (_) {
+                              setSheetState(() {
+                                tempMaximumRate = 300;
+                              });
+                            },
+                          ),
+                          ChoiceChip(
+                            label: const Text('₹350/hr'),
+                            selected: tempMaximumRate == 350,
+                            onSelected: (_) {
+                              setSheetState(() {
+                                tempMaximumRate = 350;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 22),
+
+                      const Text(
+                        'Maximum distance',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          ChoiceChip(
+                            label: const Text('Any'),
+                            selected: tempMaximumDistance == null,
+                            onSelected: (_) {
+                              setSheetState(() {
+                                tempMaximumDistance = null;
+                              });
+                            },
+                          ),
+                          ChoiceChip(
+                            label: const Text('1 km'),
+                            selected: tempMaximumDistance == 1,
+                            onSelected: (_) {
+                              setSheetState(() {
+                                tempMaximumDistance = 1;
+                              });
+                            },
+                          ),
+                          ChoiceChip(
+                            label: const Text('2 km'),
+                            selected: tempMaximumDistance == 2,
+                            onSelected: (_) {
+                              setSheetState(() {
+                                tempMaximumDistance = 2;
+                              });
+                            },
+                          ),
+                          ChoiceChip(
+                            label: const Text('3 km'),
+                            selected: tempMaximumDistance == 3,
+                            onSelected: (_) {
+                              setSheetState(() {
+                                tempMaximumDistance = 3;
+                              });
+                            },
+                          ),
+                          ChoiceChip(
+                            label: const Text('5 km'),
+                            selected: tempMaximumDistance == 5,
+                            onSelected: (_) {
+                              setSheetState(() {
+                                tempMaximumDistance = 5;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 28),
+
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              minimumRating = tempRating;
+                              maximumRate = tempMaximumRate;
+                              maximumDistance = tempMaximumDistance;
+                            });
+
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          child: const Text(
+                            'APPLY FILTERS',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final availableDrivers = drivers
-        .where(
-          (driver) =>
-              driver['verified'] == true &&
-              driver['available'] == true,
-        )
-        .toList();
+    final availableDrivers = getFilteredDrivers();
+
+    final hasFilters =
+        minimumRating != null ||
+        maximumRate != null ||
+        maximumDistance != null;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F8FA),
+
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -71,6 +448,7 @@ class AvailableDriversScreen extends StatelessWidget {
           ),
         ),
       ),
+
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -124,7 +502,7 @@ class AvailableDriversScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          pickupAddress,
+                          widget.pickupAddress,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -139,30 +517,129 @@ class AvailableDriversScreen extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
-            Text(
-              '${availableDrivers.length} drivers available',
-              style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.bold,
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: openSortSheet,
+                    icon: const Icon(
+                      Icons.swap_vert,
+                      size: 19,
+                    ),
+                    label: Text(
+                      sortBy == 'Recommended' ? 'Sort' : sortBy,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(width: 10),
+
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: openFilterSheet,
+                    icon: const Icon(
+                      Icons.tune,
+                      size: 19,
+                    ),
+                    label: Text(
+                      hasFilters ? 'Filters applied' : 'Filters',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 20),
+
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '${availableDrivers.length} drivers available',
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                if (hasFilters)
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        minimumRating = null;
+                        maximumRate = null;
+                        maximumDistance = null;
+                      });
+                    },
+                    child: const Text('Clear filters'),
+                  ),
+              ],
             ),
 
             const SizedBox(height: 12),
 
-            ...availableDrivers.map(
-              (driver) => Padding(
-                padding: const EdgeInsets.only(bottom: 14),
-                child: _DriverCard(
-                  name: driver['name'] as String,
-                  rating: driver['rating'] as double,
-                  reviews: driver['reviews'] as int,
-                  distance: driver['distance'] as double,
-                  rate: driver['rate'] as int,
+            if (availableDrivers.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Column(
+                  children: [
+                    Icon(
+                      Icons.search_off,
+                      size: 42,
+                    ),
+                    SizedBox(height: 12),
+                    Text(
+                      'No drivers match your filters',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 6),
+                    Text(
+                      'Try changing or clearing your filters.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              ...availableDrivers.map(
+                (driver) => Padding(
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: _DriverCard(
+                    name: driver['name'] as String,
+                    rating: driver['rating'] as double,
+                    reviews: driver['reviews'] as int,
+                    distance: driver['distance'] as double,
+                    rate: driver['rate'] as int,
+                  ),
                 ),
               ),
-            ),
 
             const SizedBox(height: 10),
 
