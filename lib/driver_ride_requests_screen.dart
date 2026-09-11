@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-
-import 'driver_ride_request_storage.dart';
+import 'booking_request_storage.dart';
+import 'driver_profile_storage.dart';
 
 class DriverRideRequestsScreen extends StatefulWidget {
-  const DriverRideRequestsScreen({super.key});
+  const DriverRideRequestsScreen({
+    super.key,
+  });
 
   @override
   State<DriverRideRequestsScreen> createState() =>
@@ -13,80 +15,130 @@ class DriverRideRequestsScreen extends StatefulWidget {
 class _DriverRideRequestsScreenState
     extends State<DriverRideRequestsScreen> {
   List<Map<String, dynamic>> requests = [];
+
   bool isLoading = true;
+
+  String currentDriverName = '';
 
   @override
   void initState() {
     super.initState();
-    _loadRequests();
+    loadRequests();
   }
 
-  Future<void> _loadRequests() async {
-    await DriverRideRequestStorage.addDemoRequest();
+  Future<void> loadRequests() async {
+    final profile =
+        await DriverProfileStorage.loadProfile();
 
-    final savedRequests =
-        await DriverRideRequestStorage.getRequests();
+    final driverName =
+        profile['name']?.trim() ?? '';
 
-    if (!mounted) {
-      return;
-    }
+    final allRequests =
+        await BookingRequestStorage.getRequests();
+
+    if (!mounted) return;
 
     setState(() {
-      requests = savedRequests
-          .where(
-            (request) =>
-                request['status'] == 'pending',
-          )
-          .toList();
+      currentDriverName = driverName;
+
+      requests = allRequests.where((request) {
+        final status =
+            request['status']?.toString() ?? '';
+
+        final assignedDriver =
+            request['driverName']?.toString().trim() ?? '';
+
+        return status == 'requested' &&
+            assignedDriver.toLowerCase() ==
+                driverName.toLowerCase();
+      }).toList();
 
       isLoading = false;
     });
   }
 
-  Future<void> _refreshRequests() async {
-    setState(() {
-      isLoading = true;
-    });
-
-    await _loadRequests();
-  }
-
-  Future<void> _updateRequestStatus(
+  Future<void> acceptRequest(
     Map<String, dynamic> request,
-    String status,
   ) async {
-    await DriverRideRequestStorage.updateRequestStatus(
-      request['id'],
-      status,
+    await BookingRequestStorage.updateRequestStatus(
+      requestId: request['id'] as String,
+      status: 'accepted',
     );
 
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
     setState(() {
       requests.remove(request);
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+      const SnackBar(
         content: Text(
-          status == 'accepted'
-              ? 'Ride request accepted successfully.'
-              : 'Ride request rejected.',
+          'Ride request accepted successfully.',
         ),
-        duration: const Duration(seconds: 2),
       ),
     );
   }
 
-  Future<void> _viewRequest(
+  Future<void> rejectRequest(
     Map<String, dynamic> request,
   ) async {
-    await showDialog(
+    await BookingRequestStorage.updateRequestStatus(
+      requestId: request['id'] as String,
+      status: 'rejected',
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      requests.remove(request);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Ride request rejected.',
+        ),
+      ),
+    );
+  }
+
+  void viewRequest(
+    Map<String, dynamic> request,
+  ) {
+    final customerName =
+        request['customerName'] ?? 'Customer';
+
+    final driverName =
+        request['driverName'] ?? 'Driver';
+
+    final pickupAddress =
+        request['pickupAddress'] ?? 'Pickup location';
+
+    final date =
+        request['selectedDate'] ?? '';
+
+    final time =
+        request['selectedTime'] ?? '';
+
+    final hours =
+        request['hours'] ?? 1;
+
+    final hourlyRate =
+        request['hourlyRate'] ?? 0;
+
+    final totalFare =
+        request['totalFare'] ?? 0;
+
+    showDialog(
       context: context,
-      builder: (dialogContext) {
+      builder: (context) {
         return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius.circular(18),
+          ),
+
           title: const Text(
             'Ride Request',
             style: TextStyle(
@@ -98,52 +150,64 @@ class _DriverRideRequestsScreenState
             child: Column(
               crossAxisAlignment:
                   CrossAxisAlignment.start,
+
               children: [
-                Text(
-                  request['customerName'] ??
-                      'Customer',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                _DetailRow(
+                  label: 'Customer',
+                  value: customerName.toString(),
                 ),
 
-                const SizedBox(height: 18),
+                const SizedBox(height: 12),
 
-                _DialogInfo(
-                  title: 'Pickup',
-                  value:
-                      request['pickup'] ?? '-',
+                _DetailRow(
+                  label: 'Driver',
+                  value: driverName.toString(),
                 ),
 
-                _DialogInfo(
-                  title: 'Destination',
-                  value:
-                      request['destination'] ?? '-',
+                const SizedBox(height: 12),
+
+                _DetailRow(
+                  label: 'Pickup',
+                  value: pickupAddress.toString(),
                 ),
 
-                _DialogInfo(
-                  title: 'Date',
-                  value:
-                      request['date'] ?? '-',
+                const SizedBox(height: 12),
+
+                _DetailRow(
+                  label: 'Date',
+                  value: date.toString(),
                 ),
 
-                _DialogInfo(
-                  title: 'Time',
-                  value:
-                      request['time'] ?? '-',
+                const SizedBox(height: 12),
+
+                _DetailRow(
+                  label: 'Time',
+                  value: time.toString(),
                 ),
 
-                _DialogInfo(
-                  title: 'Duration',
+                const SizedBox(height: 12),
+
+                _DetailRow(
+                  label: 'Duration',
                   value:
-                      request['duration'] ?? '-',
+                      '$hours ${hours == 1 ? 'hour' : 'hours'}',
                 ),
 
-                _DialogInfo(
-                  title: 'Estimated Fare',
-                  value:
-                      request['fare'] ?? '-',
+                const SizedBox(height: 12),
+
+                _DetailRow(
+                  label: 'Hourly charge',
+                  value: '₹$hourlyRate/hr',
+                ),
+
+                const Divider(
+                  height: 28,
+                ),
+
+                _DetailRow(
+                  label: 'Estimated fare',
+                  value: '₹$totalFare',
+                  bold: true,
                 ),
               ],
             ),
@@ -152,44 +216,32 @@ class _DriverRideRequestsScreenState
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(dialogContext);
+                Navigator.pop(context);
               },
               child: const Text('CLOSE'),
             ),
 
             TextButton(
               onPressed: () async {
-                Navigator.pop(dialogContext);
+                Navigator.pop(context);
 
-                await _updateRequestStatus(
-                  request,
-                  'rejected',
-                );
+                await rejectRequest(request);
               },
               child: const Text(
                 'REJECT',
                 style: TextStyle(
                   color: Colors.red,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
 
             ElevatedButton(
               onPressed: () async {
-                Navigator.pop(dialogContext);
+                Navigator.pop(context);
 
-                await _updateRequestStatus(
-                  request,
-                  'accepted',
-                );
+                await acceptRequest(request);
               },
-              child: const Text(
-                'ACCEPT',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              child: const Text('ACCEPT'),
             ),
           ],
         );
@@ -200,11 +252,13 @@ class _DriverRideRequestsScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8FA),
+      backgroundColor:
+          const Color(0xFFF8F8FA),
 
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+
         title: const Text(
           'Ride Requests',
           style: TextStyle(
@@ -213,92 +267,120 @@ class _DriverRideRequestsScreenState
         ),
       ),
 
-      body: RefreshIndicator(
-        onRefresh: _refreshRequests,
+      body: isLoading
+          ? const Center(
+              child: CircularProgressIndicator(),
+            )
+          : requests.isEmpty
+              ? const _EmptyRequests()
+              : RefreshIndicator(
+                  onRefresh: loadRequests,
 
-        child: isLoading
-            ? const Center(
-                child: CircularProgressIndicator(),
-              )
-            : requests.isEmpty
-                ? ListView(
-                    children: const [
-                      SizedBox(height: 220),
+                  child: ListView(
+                    padding:
+                        const EdgeInsets.all(16),
 
-                      Center(
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.inbox_outlined,
-                              size: 64,
-                              color: Colors.grey,
-                            ),
+                    children: [
+                      const Text(
+                        'New ride requests',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight:
+                              FontWeight.bold,
+                        ),
+                      ),
 
-                            SizedBox(height: 16),
+                      const SizedBox(height: 6),
 
-                            Text(
-                              'No ride requests',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight:
-                                    FontWeight.bold,
-                              ),
-                            ),
+                      Text(
+                        'Requests for $currentDriverName will appear here.',
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 14,
+                        ),
+                      ),
 
-                            SizedBox(height: 8),
+                      const SizedBox(height: 20),
 
-                            Text(
-                              'New ride requests will appear here.',
-                              style: TextStyle(
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ],
+                      ...requests.map(
+                        (request) => Padding(
+                          padding:
+                              const EdgeInsets.only(
+                            bottom: 14,
+                          ),
+
+                          child:
+                              _RideRequestCard(
+                            request: request,
+                            onView: () {
+                              viewRequest(
+                                request,
+                              );
+                            },
+                          ),
                         ),
                       ),
                     ],
-                  )
-                : ListView.builder(
-                    padding:
-                        const EdgeInsets.all(16),
-                    itemCount: requests.length,
-                    itemBuilder:
-                        (context, index) {
-                      return _RideRequestCard(
-                        request: requests[index],
-                        onViewRequest:
-                            () => _viewRequest(
-                          requests[index],
-                        ),
-                      );
-                    },
                   ),
-      ),
+                ),
     );
   }
 }
 
-class _RideRequestCard extends StatelessWidget {
+class _RideRequestCard
+    extends StatelessWidget {
   final Map<String, dynamic> request;
-  final VoidCallback onViewRequest;
+  final VoidCallback onView;
 
   const _RideRequestCard({
     required this.request,
-    required this.onViewRequest,
+    required this.onView,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin:
-          const EdgeInsets.only(bottom: 16),
+    final customerName =
+        request['customerName'] ??
+            'Customer';
 
-      padding: const EdgeInsets.all(20),
+    final driverName =
+        request['driverName'] ??
+            'Driver';
+
+    final pickup =
+        request['pickupAddress'] ??
+            'Pickup location';
+
+    final date =
+        request['selectedDate'] ?? '';
+
+    final time =
+        request['selectedTime'] ?? '';
+
+    final hours =
+        request['hours'] ?? 1;
+
+    final hourlyRate =
+        request['hourlyRate'] ?? 0;
+
+    final totalFare =
+        request['totalFare'] ?? 0;
+
+    return Container(
+      width: double.infinity,
+
+      padding:
+          const EdgeInsets.all(18),
 
       decoration: BoxDecoration(
         color: Colors.white,
+
         borderRadius:
-            BorderRadius.circular(18),
+            BorderRadius.circular(16),
+
+        border: Border.all(
+          color: Colors.black12,
+        ),
       ),
 
       child: Column(
@@ -308,47 +390,62 @@ class _RideRequestCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                width: 48,
-                height: 48,
+              CircleAvatar(
+                radius: 24,
 
-                decoration:
-                    const BoxDecoration(
-                  color: Colors.black,
-                  shape: BoxShape.circle,
-                ),
+                backgroundColor:
+                    Colors.black12,
 
-                child: const Icon(
-                  Icons.person_outline,
-                  color: Colors.white,
-                  size: 28,
+                child: Text(
+                  customerName
+                          .toString()
+                          .isNotEmpty
+                      ? customerName
+                          .toString()[0]
+                          .toUpperCase()
+                      : 'C',
+
+                  style:
+                      const TextStyle(
+                    fontSize: 19,
+                    fontWeight:
+                        FontWeight.bold,
+                  ),
                 ),
               ),
 
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
 
               Expanded(
                 child: Column(
                   crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                      CrossAxisAlignment
+                          .start,
 
                   children: [
-                    const Text(
-                      'New Ride Request',
-                      style: TextStyle(
-                        fontSize: 18,
+                    Text(
+                      customerName
+                          .toString(),
+
+                      style:
+                          const TextStyle(
+                        fontSize: 17,
                         fontWeight:
                             FontWeight.bold,
                       ),
                     ),
 
-                    const SizedBox(height: 4),
+                    const SizedBox(
+                      height: 4,
+                    ),
 
                     Text(
-                      request['customerName'] ??
-                          'Customer',
-                      style: const TextStyle(
+                      'Request for $driverName',
+
+                      style:
+                          const TextStyle(
                         color: Colors.grey,
+                        fontSize: 12,
                       ),
                     ),
                   ],
@@ -357,110 +454,106 @@ class _RideRequestCard extends StatelessWidget {
 
               Container(
                 padding:
-                    const EdgeInsets.symmetric(
+                    const EdgeInsets
+                        .symmetric(
                   horizontal: 10,
-                  vertical: 6,
+                  vertical: 5,
                 ),
 
-                decoration: BoxDecoration(
-                  color:
-                      Colors.orange.shade50,
+                decoration:
+                    BoxDecoration(
+                  color: Colors.orange
+                      .withValues(
+                    alpha: 0.12,
+                  ),
+
                   borderRadius:
-                      BorderRadius.circular(20),
+                      BorderRadius.circular(
+                    20,
+                  ),
                 ),
 
-                child: Text(
-                  'PENDING',
+                child: const Text(
+                  'NEW',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight:
                         FontWeight.bold,
-                    color:
-                        Colors.orange.shade700,
                   ),
                 ),
               ),
             ],
           ),
 
-          const SizedBox(height: 22),
+          const SizedBox(height: 18),
 
-          _LocationRow(
-            icon: Icons.trip_origin,
-            title: 'Pickup',
-            value:
-                request['pickup'] ??
-                    'Not available',
-          ),
+          const Divider(),
 
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
 
-          _LocationRow(
+          _RequestInfo(
             icon:
                 Icons.location_on_outlined,
-            title: 'Destination',
-            value:
-                request['destination'] ??
-                    'Not available',
+            text: pickup.toString(),
           ),
 
-          const Divider(
-            height: 30,
-          ),
+          const SizedBox(height: 10),
 
-          _InfoRow(
+          _RequestInfo(
             icon:
                 Icons.calendar_today_outlined,
-            title: 'Date',
-            value:
-                request['date'] ?? '-',
+            text:
+                '${date.toString()} • ${time.toString()}',
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
 
-          _InfoRow(
+          _RequestInfo(
             icon: Icons.access_time,
-            title: 'Time',
-            value:
-                request['time'] ?? '-',
+            text:
+                '$hours ${hours == 1 ? 'hour' : 'hours'}',
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
 
-          _InfoRow(
-            icon: Icons.timer_outlined,
-            title: 'Duration',
-            value:
-                request['duration'] ?? '-',
+          Row(
+            mainAxisAlignment:
+                MainAxisAlignment
+                    .spaceBetween,
+
+            children: [
+              const Text(
+                'Estimated fare',
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: 13,
+                ),
+              ),
+
+              Text(
+                '₹$totalFare',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight:
+                      FontWeight.bold,
+                ),
+              ),
+            ],
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 4),
 
-          _InfoRow(
-            icon: Icons.currency_rupee,
-            title: 'Estimated Fare',
-            value:
-                request['fare'] ?? '-',
-          ),
-
-          const SizedBox(height: 20),
-
-          Container(
-            width: double.infinity,
-            padding:
-                const EdgeInsets.all(12),
-
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius:
-                  BorderRadius.circular(12),
-            ),
+          Align(
+            alignment:
+                Alignment.centerRight,
 
             child: Text(
-              'Request ID: ${request['id'] ?? '-'}',
-              style: const TextStyle(
-                fontSize: 12,
+              '₹$hourlyRate/hr',
+
+              style:
+                  const TextStyle(
                 color: Colors.grey,
+                fontSize: 12,
               ),
             ),
           ),
@@ -469,14 +562,26 @@ class _RideRequestCard extends StatelessWidget {
 
           SizedBox(
             width: double.infinity,
-            height: 48,
+            height: 46,
 
-            child: OutlinedButton(
-              onPressed: onViewRequest,
+            child: ElevatedButton(
+              onPressed: onView,
+
+              style:
+                  ElevatedButton.styleFrom(
+                shape:
+                    RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(
+                    12,
+                  ),
+                ),
+              ),
 
               child: const Text(
                 'VIEW REQUEST',
                 style: TextStyle(
+                  fontSize: 14,
                   fontWeight:
                       FontWeight.bold,
                 ),
@@ -489,15 +594,14 @@ class _RideRequestCard extends StatelessWidget {
   }
 }
 
-class _LocationRow extends StatelessWidget {
+class _RequestInfo
+    extends StatelessWidget {
   final IconData icon;
-  final String title;
-  final String value;
+  final String text;
 
-  const _LocationRow({
+  const _RequestInfo({
     required this.icon,
-    required this.title,
-    required this.value,
+    required this.text,
   });
 
   @override
@@ -509,36 +613,18 @@ class _LocationRow extends StatelessWidget {
       children: [
         Icon(
           icon,
-          size: 24,
+          size: 18,
         ),
 
-        const SizedBox(width: 14),
+        const SizedBox(width: 8),
 
         Expanded(
-          child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
-
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey,
-                ),
-              ),
-
-              const SizedBox(height: 4),
-
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight:
-                      FontWeight.w600,
-                ),
-              ),
-            ],
+          child: Text(
+            text,
+            style:
+                const TextStyle(
+              fontSize: 13,
+            ),
           ),
         ),
       ],
@@ -546,43 +632,48 @@ class _LocationRow extends StatelessWidget {
   }
 }
 
-class _InfoRow extends StatelessWidget {
-  final IconData icon;
-  final String title;
+class _DetailRow
+    extends StatelessWidget {
+  final String label;
   final String value;
+  final bool bold;
 
-  const _InfoRow({
-    required this.icon,
-    required this.title,
+  const _DetailRow({
+    required this.label,
     required this.value,
+    this.bold = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Row(
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
+
       children: [
-        Icon(
-          icon,
-          size: 22,
-          color: Colors.grey.shade700,
-        ),
+        SizedBox(
+          width: 100,
 
-        const SizedBox(width: 14),
-
-        Expanded(
           child: Text(
-            title,
-            style: const TextStyle(
+            label,
+            style:
+                const TextStyle(
               color: Colors.grey,
+              fontSize: 13,
             ),
           ),
         ),
 
-        Text(
-          value,
-          style: const TextStyle(
-            fontWeight:
-                FontWeight.w600,
+        Expanded(
+          child: Text(
+            value,
+
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: bold
+                  ? FontWeight.bold
+                  : FontWeight.w500,
+            ),
           ),
         ),
       ],
@@ -590,44 +681,54 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-class _DialogInfo extends StatelessWidget {
-  final String title;
-  final String value;
-
-  const _DialogInfo({
-    required this.title,
-    required this.value,
-  });
+class _EmptyRequests
+    extends StatelessWidget {
+  const _EmptyRequests();
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding:
-          const EdgeInsets.only(bottom: 12),
+    return Center(
+      child: Padding(
+        padding:
+            const EdgeInsets.all(30),
 
-      child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        child: Column(
+          mainAxisAlignment:
+              MainAxisAlignment.center,
 
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Colors.grey,
+          children: [
+            Icon(
+              Icons.inbox_outlined,
+              size: 55,
+              color:
+                  Colors.grey.shade400,
             ),
-          ),
 
-          const SizedBox(height: 3),
-
-          Text(
-            value,
-            style: const TextStyle(
-              fontWeight:
-                  FontWeight.w600,
+            const SizedBox(
+              height: 18,
             ),
-          ),
-        ],
+
+            const Text(
+              'No ride requests',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight:
+                    FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(height: 8),
+
+            const Text(
+              'New customer requests will appear here.',
+              textAlign:
+                  TextAlign.center,
+              style: TextStyle(
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

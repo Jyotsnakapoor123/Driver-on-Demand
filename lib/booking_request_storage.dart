@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
+import 'profile_storage.dart';
 
 class BookingRequestStorage {
   static const String _requestsKey = 'booking_requests';
@@ -8,14 +9,14 @@ class BookingRequestStorage {
   static Future<List<Map<String, dynamic>>> getRequests() async {
     final preferences = await SharedPreferences.getInstance();
 
-    final savedRequests = preferences.getStringList(_requestsKey) ?? [];
+    final savedRequests =
+        preferences.getStringList(_requestsKey) ?? [];
 
-    return savedRequests
-        .map(
-          (request) =>
-              Map<String, dynamic>.from(jsonDecode(request) as Map),
-        )
-        .toList();
+    return savedRequests.map((request) {
+      return Map<String, dynamic>.from(
+        jsonDecode(request) as Map,
+      );
+    }).toList();
   }
 
   static Future<void> saveRequest({
@@ -31,8 +32,14 @@ class BookingRequestStorage {
 
     final requests = await getRequests();
 
+    final profile = await ProfileStorage.loadProfile();
+
+    final customerName =
+        profile['name'] ?? 'Customer';
+
     final request = {
       'id': 'REQ${DateTime.now().millisecondsSinceEpoch}',
+      'customerName': customerName,
       'driverName': driverName,
       'driverRating': driverRating,
       'hourlyRate': hourlyRate,
@@ -53,8 +60,33 @@ class BookingRequestStorage {
     );
   }
 
+  static Future<void> updateRequestStatus({
+    required String requestId,
+    required String status,
+  }) async {
+    final preferences = await SharedPreferences.getInstance();
+
+    final requests = await getRequests();
+
+    final index = requests.indexWhere(
+      (request) => request['id'] == requestId,
+    );
+
+    if (index == -1) {
+      return;
+    }
+
+    requests[index]['status'] = status;
+
+    await preferences.setStringList(
+      _requestsKey,
+      requests.map(jsonEncode).toList(),
+    );
+  }
+
   static Future<void> clearRequests() async {
     final preferences = await SharedPreferences.getInstance();
+
     await preferences.remove(_requestsKey);
   }
 }
