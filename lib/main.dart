@@ -48,15 +48,30 @@ class _AuthGateState extends State<AuthGate> {
   Future<void> checkLogin() async {
     final loggedIn = await AuthStorage.isLoggedIn();
 
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
     setState(() {
       isLoggedIn = loggedIn;
     });
   }
 
+  void handleLogin() {
+    setState(() {
+      isLoggedIn = true;
+    });
+  }
+
+  void handleLogout() {
+    setState(() {
+      isLoggedIn = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Checking login status
     if (isLoggedIn == null) {
       return const Scaffold(
         body: Center(
@@ -65,22 +80,27 @@ class _AuthGateState extends State<AuthGate> {
       );
     }
 
+    // User is logged out
     if (!isLoggedIn!) {
       return AuthScreen(
-        onAuthSuccess: () {
-          setState(() {
-            isLoggedIn = true;
-          });
-        },
+        onAuthSuccess: handleLogin,
       );
     }
 
-    return const HomeScreen();
+    // User is logged in
+    return HomeScreen(
+      onLogout: handleLogout,
+    );
   }
 }
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+  final VoidCallback onLogout;
+
+  const HomeScreen({
+    super.key,
+    required this.onLogout,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -94,7 +114,9 @@ class HomeScreen extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const ProfileScreen(),
+                  builder: (_) => ProfileScreen(
+                    onLogout: onLogout,
+                  ),
                 ),
               );
             },
@@ -112,12 +134,18 @@ class HomeScreen extends StatelessWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
+
             const SizedBox(height: 16),
+
             const Text(
               'Book a verified driver by the hour.',
-              style: TextStyle(fontSize: 18),
+              style: TextStyle(
+                fontSize: 18,
+              ),
             ),
+
             const SizedBox(height: 40),
+
             ElevatedButton(
               onPressed: () {
                 Navigator.push(
@@ -129,7 +157,9 @@ class HomeScreen extends StatelessWidget {
               },
               child: const Text('BOOK A DRIVER'),
             ),
+
             const SizedBox(height: 20),
+
             OutlinedButton(
               onPressed: () {
                 Navigator.push(

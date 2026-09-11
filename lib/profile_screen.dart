@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'profile_storage.dart';
+import 'auth_storage.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final VoidCallback onLogout;
+
+  const ProfileScreen({
+    super.key,
+    required this.onLogout,
+  });
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -70,6 +76,55 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _logout() async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Logout'),
+          content: const Text(
+            'Are you sure you want to logout?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context, false);
+              },
+              child: const Text('CANCEL'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context, true);
+              },
+              child: const Text('LOGOUT'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldLogout != true) {
+      return;
+    }
+
+    // Logout the current user
+    await AuthStorage.logout();
+
+    if (!mounted) {
+      return;
+    }
+
+    // First tell AuthGate that the user is logged out
+    widget.onLogout();
+
+    // Remove Profile screen and return to the root screen.
+    // This prevents the Profile screen from staying visible
+    // after logout.
+    Navigator.of(context).popUntil(
+      (route) => route.isFirst,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -77,6 +132,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
         title: const Text(
           'Profile',
           style: TextStyle(
@@ -100,6 +161,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Column(
           children: [
             const SizedBox(height: 16),
+
             Container(
               width: 90,
               height: 90,
@@ -113,7 +175,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 color: Colors.white,
               ),
             ),
+
             const SizedBox(height: 14),
+
             Text(
               userName,
               style: const TextStyle(
@@ -121,7 +185,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
+
             const SizedBox(height: 5),
+
             Text(
               userEmail,
               style: const TextStyle(
@@ -129,7 +195,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 color: Colors.grey,
               ),
             ),
+
             const SizedBox(height: 30),
+
             _SectionCard(
               title: 'Personal Information',
               children: [
@@ -150,7 +218,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ],
             ),
+
             const SizedBox(height: 16),
+
             _MenuCard(
               icon: Icons.calendar_month_outlined,
               title: 'My Bookings',
@@ -158,7 +228,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Navigator.pop(context);
               },
             ),
+
             const SizedBox(height: 12),
+
             _MenuCard(
               icon: Icons.settings_outlined,
               title: 'Settings',
@@ -170,18 +242,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 );
               },
             ),
+
             const SizedBox(height: 12),
+
             _MenuCard(
               icon: Icons.logout,
               title: 'Logout',
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Logout will be available soon.'),
-                  ),
-                );
-              },
+              onTap: _logout,
             ),
+
             const SizedBox(height: 20),
           ],
         ),
@@ -285,13 +354,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         child: Column(
           children: [
             const SizedBox(height: 10),
+
             _InputField(
               controller: _nameController,
               label: 'Name',
               hint: 'Enter your name',
               icon: Icons.person_outline,
             ),
+
             const SizedBox(height: 16),
+
             _InputField(
               controller: _emailController,
               label: 'Email',
@@ -299,7 +371,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               icon: Icons.email_outlined,
               keyboardType: TextInputType.emailAddress,
             ),
+
             const SizedBox(height: 16),
+
             _InputField(
               controller: _phoneController,
               label: 'Phone',
@@ -307,7 +381,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               icon: Icons.phone_outlined,
               keyboardType: TextInputType.phone,
             ),
+
             const SizedBox(height: 30),
+
             SizedBox(
               width: double.infinity,
               height: 52,
