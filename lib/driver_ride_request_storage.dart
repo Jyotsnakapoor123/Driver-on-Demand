@@ -63,6 +63,22 @@ class DriverRideRequestStorage {
     await saveRequests(requests);
   }
 
+  static Future<void> updateRequestStatus(
+    String requestId,
+    String status,
+  ) async {
+    final requests = await getRequests();
+
+    for (final request in requests) {
+      if (request['id'] == requestId) {
+        request['status'] = status;
+        break;
+      }
+    }
+
+    await saveRequests(requests);
+  }
+
   static Future<void> clearRequests() async {
     final preferences =
         await SharedPreferences.getInstance();

@@ -34,9 +34,7 @@ class _DriverHomeScreenState
     final available =
         await DriverAvailabilityStorage.isAvailable();
 
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
     setState(() {
       isAvailable = available;
@@ -51,9 +49,7 @@ class _DriverHomeScreenState
 
     await DriverAvailabilityStorage.setAvailable(value);
 
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -94,15 +90,11 @@ class _DriverHomeScreenState
       },
     );
 
-    if (shouldLogout != true) {
-      return;
-    }
+    if (shouldLogout != true) return;
 
     await DriverAuthStorage.logout();
 
-    if (!context.mounted) {
-      return;
-    }
+    if (!context.mounted) return;
 
     widget.onLogout();
   }
@@ -159,24 +151,34 @@ class _DriverHomeScreenState
         ],
       ),
 
-      body: Padding(
-        padding: const EdgeInsets.all(20),
+      // IMPORTANT:
+      // Entire page is scrollable.
+      body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+
+        padding: const EdgeInsets.fromLTRB(
+          16,
+          30,
+          16,
+          24,
+        ),
 
         child: Column(
           children: [
-            const SizedBox(height: 30),
-
+            // =========================
             // DRIVER ICON
+            // =========================
+
             Container(
-              width: 90,
-              height: 90,
+              width: 100,
+              height: 100,
               decoration: const BoxDecoration(
                 color: Colors.black,
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.drive_eta_outlined,
-                size: 48,
+                size: 52,
                 color: Colors.white,
               ),
             ),
@@ -185,8 +187,9 @@ class _DriverHomeScreenState
 
             const Text(
               'Welcome, Driver!',
+              textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 26,
+                fontSize: 28,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -219,8 +222,6 @@ class _DriverHomeScreenState
               ),
 
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
@@ -258,9 +259,7 @@ class _DriverHomeScreenState
                                     FontWeight.bold,
                               ),
                             ),
-
                             SizedBox(height: 4),
-
                             Text(
                               'Choose whether you want to receive ride requests.',
                               style: TextStyle(
@@ -299,7 +298,6 @@ class _DriverHomeScreenState
                       vertical: 12,
                       horizontal: 14,
                     ),
-
                     decoration: BoxDecoration(
                       color: isAvailable
                           ? Colors.green.shade50
@@ -307,31 +305,28 @@ class _DriverHomeScreenState
                       borderRadius:
                           BorderRadius.circular(12),
                     ),
-
                     child: Row(
                       children: [
                         Icon(
-                          isAvailable
-                              ? Icons.circle
-                              : Icons.circle_outlined,
+                          Icons.circle,
                           size: 12,
                           color: isAvailable
                               ? Colors.green.shade700
                               : Colors.grey.shade600,
                         ),
-
                         const SizedBox(width: 10),
-
-                        Text(
-                          isAvailable
-                              ? 'You are AVAILABLE for rides'
-                              : 'You are currently OFFLINE',
-                          style: TextStyle(
-                            fontWeight:
-                                FontWeight.w600,
-                            color: isAvailable
-                                ? Colors.green.shade700
-                                : Colors.grey.shade700,
+                        Expanded(
+                          child: Text(
+                            isAvailable
+                                ? 'You are AVAILABLE for rides'
+                                : 'You are currently OFFLINE',
+                            style: TextStyle(
+                              fontWeight:
+                                  FontWeight.w600,
+                              color: isAvailable
+                                  ? Colors.green.shade700
+                                  : Colors.grey.shade700,
+                            ),
                           ),
                         ),
                       ],
@@ -347,60 +342,12 @@ class _DriverHomeScreenState
             // DRIVER PROFILE
             // =========================
 
-            GestureDetector(
+            _HomeMenuCard(
+              icon: Icons.person_outline,
+              title: 'Driver Profile',
+              subtitle:
+                  'View and edit your personal information.',
               onTap: () => _openProfile(context),
-
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius:
-                      BorderRadius.circular(16),
-                ),
-
-                child: const Row(
-                  children: [
-                    Icon(
-                      Icons.person_outline,
-                      size: 30,
-                    ),
-
-                    SizedBox(width: 16),
-
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Driver Profile',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight:
-                                  FontWeight.bold,
-                            ),
-                          ),
-
-                          SizedBox(height: 6),
-
-                          Text(
-                            'View and edit your personal information.',
-                            style: TextStyle(
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    Icon(
-                      Icons.chevron_right,
-                    ),
-                  ],
-                ),
-              ),
             ),
 
             const SizedBox(height: 14),
@@ -409,61 +356,13 @@ class _DriverHomeScreenState
             // DRIVER VERIFICATION
             // =========================
 
-            GestureDetector(
+            _HomeMenuCard(
+              icon: Icons.verified_user_outlined,
+              title: 'Driver Verification',
+              subtitle:
+                  'Verify your identity and vehicle.',
               onTap: () =>
                   _openVerification(context),
-
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius:
-                      BorderRadius.circular(16),
-                ),
-
-                child: const Row(
-                  children: [
-                    Icon(
-                      Icons.verified_user_outlined,
-                      size: 30,
-                    ),
-
-                    SizedBox(width: 16),
-
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Driver Verification',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight:
-                                  FontWeight.bold,
-                            ),
-                          ),
-
-                          SizedBox(height: 6),
-
-                          Text(
-                            'Verify your identity and vehicle.',
-                            style: TextStyle(
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    Icon(
-                      Icons.chevron_right,
-                    ),
-                  ],
-                ),
-              ),
             ),
 
             const SizedBox(height: 14),
@@ -472,64 +371,16 @@ class _DriverHomeScreenState
             // RIDE REQUESTS
             // =========================
 
-            GestureDetector(
+            _HomeMenuCard(
+              icon: Icons.notifications_none,
+              title: 'Ride Requests',
+              subtitle:
+                  'View incoming requests from customers.',
               onTap: () =>
                   _openRideRequests(context),
-
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius:
-                      BorderRadius.circular(16),
-                ),
-
-                child: const Row(
-                  children: [
-                    Icon(
-                      Icons.notifications_none,
-                      size: 30,
-                    ),
-
-                    SizedBox(width: 16),
-
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Ride Requests',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight:
-                                  FontWeight.bold,
-                            ),
-                          ),
-
-                          SizedBox(height: 6),
-
-                          Text(
-                            'View incoming requests from customers.',
-                            style: TextStyle(
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    Icon(
-                      Icons.chevron_right,
-                    ),
-                  ],
-                ),
-              ),
             ),
 
-            const Spacer(),
+            const SizedBox(height: 24),
 
             // =========================
             // LOGOUT
@@ -538,11 +389,8 @@ class _DriverHomeScreenState
             SizedBox(
               width: double.infinity,
               height: 52,
-
               child: OutlinedButton(
-                onPressed: () =>
-                    _logout(context),
-
+                onPressed: () => _logout(context),
                 child: const Text(
                   'LOGOUT',
                   style: TextStyle(
@@ -552,8 +400,86 @@ class _DriverHomeScreenState
               ),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 8),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// =====================================
+// REUSABLE HOME MENU CARD
+// =====================================
+
+class _HomeMenuCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _HomeMenuCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                size: 30,
+              ),
+
+              const SizedBox(width: 16),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight:
+                            FontWeight.bold,
+                      ),
+                    ),
+
+                    const SizedBox(height: 6),
+
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const Icon(
+                Icons.chevron_right,
+              ),
+            ],
+          ),
         ),
       ),
     );
