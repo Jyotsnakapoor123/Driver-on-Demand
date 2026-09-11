@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import 'auth_screen.dart';
+import 'auth_storage.dart';
 import 'booking_screen.dart';
 import 'my_bookings_screen.dart';
 import 'profile_screen.dart';
@@ -15,8 +18,64 @@ class DriverOnDemandApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Driver On Demand',
-      home: const HomeScreen(),
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.deepPurple,
+        ),
+        useMaterial3: true,
+      ),
+      home: const AuthGate(),
     );
+  }
+}
+
+class AuthGate extends StatefulWidget {
+  const AuthGate({super.key});
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  bool? isLoggedIn;
+
+  @override
+  void initState() {
+    super.initState();
+    checkLogin();
+  }
+
+  Future<void> checkLogin() async {
+    final loggedIn = await AuthStorage.isLoggedIn();
+
+    if (!mounted) return;
+
+    setState(() {
+      isLoggedIn = loggedIn;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoggedIn == null) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (!isLoggedIn!) {
+      return AuthScreen(
+        onAuthSuccess: () {
+          setState(() {
+            isLoggedIn = true;
+          });
+        },
+      );
+    }
+
+    return const HomeScreen();
   }
 }
 
@@ -31,12 +90,11 @@ class HomeScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.person_outline),
-            tooltip: 'Profile',
             onPressed: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const ProfileScreen(),
+                  builder: (_) => const ProfileScreen(),
                 ),
               );
             },
@@ -50,42 +108,34 @@ class HomeScreen extends StatelessWidget {
             const Text(
               'Your car. Your driver.',
               style: TextStyle(
-                fontSize: 28,
+                fontSize: 30,
                 fontWeight: FontWeight.bold,
               ),
             ),
-
-            const SizedBox(height: 15),
-
+            const SizedBox(height: 16),
             const Text(
               'Book a verified driver by the hour.',
-              style: TextStyle(
-                fontSize: 16,
-              ),
+              style: TextStyle(fontSize: 18),
             ),
-
-            const SizedBox(height: 30),
-
+            const SizedBox(height: 40),
             ElevatedButton(
               onPressed: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const BookingScreen(),
+                    builder: (_) => const BookingScreen(),
                   ),
                 );
               },
               child: const Text('BOOK A DRIVER'),
             ),
-
-            const SizedBox(height: 12),
-
+            const SizedBox(height: 20),
             OutlinedButton(
               onPressed: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const MyBookingsScreen(),
+                    builder: (_) => const MyBookingsScreen(),
                   ),
                 );
               },
