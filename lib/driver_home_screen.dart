@@ -4,6 +4,7 @@ import 'driver_auth_storage.dart';
 import 'driver_availability_storage.dart';
 import 'driver_profile_screen.dart';
 import 'driver_verification_screen.dart';
+import 'driver_ride_requests_screen.dart';
 
 class DriverHomeScreen extends StatefulWidget {
   final VoidCallback onLogout;
@@ -14,10 +15,12 @@ class DriverHomeScreen extends StatefulWidget {
   });
 
   @override
-  State<DriverHomeScreen> createState() => _DriverHomeScreenState();
+  State<DriverHomeScreen> createState() =>
+      _DriverHomeScreenState();
 }
 
-class _DriverHomeScreenState extends State<DriverHomeScreen> {
+class _DriverHomeScreenState
+    extends State<DriverHomeScreen> {
   bool isAvailable = false;
   bool isLoading = true;
 
@@ -122,6 +125,16 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     );
   }
 
+  void _openRideRequests(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            const DriverRideRequestsScreen(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -153,7 +166,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
           children: [
             const SizedBox(height: 30),
 
-            // Driver Icon
+            // DRIVER ICON
             Container(
               width: 90,
               height: 90,
@@ -198,14 +211,16 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
+
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
+                borderRadius:
+                    BorderRadius.circular(18),
               ),
 
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
@@ -218,7 +233,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                               : Colors.grey.shade200,
                           shape: BoxShape.circle,
                         ),
-
                         child: Icon(
                           isAvailable
                               ? Icons.check_circle_outline
@@ -240,7 +254,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                               'Driver Availability',
                               style: TextStyle(
                                 fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                                fontWeight:
+                                    FontWeight.bold,
                               ),
                             ),
 
@@ -261,14 +276,16 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                         const SizedBox(
                           width: 22,
                           height: 22,
-                          child: CircularProgressIndicator(
+                          child:
+                              CircularProgressIndicator(
                             strokeWidth: 2,
                           ),
                         )
                       else
                         Switch(
                           value: isAvailable,
-                          onChanged: _toggleAvailability,
+                          onChanged:
+                              _toggleAvailability,
                         ),
                     ],
                   ),
@@ -277,7 +294,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
 
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
+                    padding:
+                        const EdgeInsets.symmetric(
                       vertical: 12,
                       horizontal: 14,
                     ),
@@ -286,7 +304,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                       color: isAvailable
                           ? Colors.green.shade50
                           : Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius:
+                          BorderRadius.circular(12),
                     ),
 
                     child: Row(
@@ -307,9 +326,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                           isAvailable
                               ? 'You are AVAILABLE for rides'
                               : 'You are currently OFFLINE',
-
                           style: TextStyle(
-                            fontWeight: FontWeight.w600,
+                            fontWeight:
+                                FontWeight.w600,
                             color: isAvailable
                                 ? Colors.green.shade700
                                 : Colors.grey.shade700,
@@ -337,7 +356,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
 
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius:
+                      BorderRadius.circular(16),
                 ),
 
                 child: const Row(
@@ -358,7 +378,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                             'Driver Profile',
                             style: TextStyle(
                               fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                              fontWeight:
+                                  FontWeight.bold,
                             ),
                           ),
 
@@ -374,7 +395,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                       ),
                     ),
 
-                    Icon(Icons.chevron_right),
+                    Icon(
+                      Icons.chevron_right,
+                    ),
                   ],
                 ),
               ),
@@ -387,7 +410,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
             // =========================
 
             GestureDetector(
-              onTap: () => _openVerification(context),
+              onTap: () =>
+                  _openVerification(context),
 
               child: Container(
                 width: double.infinity,
@@ -395,7 +419,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
 
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius:
+                      BorderRadius.circular(16),
                 ),
 
                 child: const Row(
@@ -416,7 +441,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                             'Driver Verification',
                             style: TextStyle(
                               fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                              fontWeight:
+                                  FontWeight.bold,
                             ),
                           ),
 
@@ -432,7 +458,72 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                       ),
                     ),
 
-                    Icon(Icons.chevron_right),
+                    Icon(
+                      Icons.chevron_right,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 14),
+
+            // =========================
+            // RIDE REQUESTS
+            // =========================
+
+            GestureDetector(
+              onTap: () =>
+                  _openRideRequests(context),
+
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius:
+                      BorderRadius.circular(16),
+                ),
+
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.notifications_none,
+                      size: 30,
+                    ),
+
+                    SizedBox(width: 16),
+
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Ride Requests',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight:
+                                  FontWeight.bold,
+                            ),
+                          ),
+
+                          SizedBox(height: 6),
+
+                          Text(
+                            'View incoming requests from customers.',
+                            style: TextStyle(
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    Icon(
+                      Icons.chevron_right,
+                    ),
                   ],
                 ),
               ),
@@ -449,7 +540,8 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
               height: 52,
 
               child: OutlinedButton(
-                onPressed: () => _logout(context),
+                onPressed: () =>
+                    _logout(context),
 
                 child: const Text(
                   'LOGOUT',
