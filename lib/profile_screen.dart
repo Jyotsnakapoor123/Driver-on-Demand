@@ -1,7 +1,39 @@
 import 'package:flutter/material.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  String userName = 'User Name';
+  String userEmail = 'user@email.com';
+  String userPhone = 'Not added';
+
+  Future<void> _openEditProfile() async {
+    final updatedProfile = await Navigator.push<Map<String, String>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditProfileScreen(
+          name: userName,
+          email: userEmail,
+          phone: userPhone == 'Not added' ? '' : userPhone,
+        ),
+      ),
+    );
+
+    if (updatedProfile != null) {
+      setState(() {
+        userName = updatedProfile['name'] ?? userName;
+        userEmail = updatedProfile['email'] ?? userEmail;
+
+        final phone = updatedProfile['phone'] ?? '';
+        userPhone = phone.isEmpty ? 'Not added' : phone;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -16,18 +48,27 @@ class ProfileScreen extends StatelessWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
+        actions: [
+          TextButton(
+            onPressed: _openEditProfile,
+            child: const Text(
+              'Edit',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
             const SizedBox(height: 16),
-
-            // Profile avatar
             Container(
               width: 90,
               height: 90,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: Colors.black,
                 shape: BoxShape.circle,
               ),
@@ -37,52 +78,44 @@ class ProfileScreen extends StatelessWidget {
                 color: Colors.white,
               ),
             ),
-
             const SizedBox(height: 14),
-
-            const Text(
-              'User Name',
-              style: TextStyle(
+            Text(
+              userName,
+              style: const TextStyle(
                 fontSize: 23,
                 fontWeight: FontWeight.bold,
               ),
             ),
-
             const SizedBox(height: 5),
-
-            const Text(
-              'user@email.com',
-              style: TextStyle(
+            Text(
+              userEmail,
+              style: const TextStyle(
                 fontSize: 14,
                 color: Colors.grey,
               ),
             ),
-
             const SizedBox(height: 30),
-
             _SectionCard(
               title: 'Personal Information',
-              children: const [
+              children: [
                 _InfoRow(
                   icon: Icons.person_outline,
                   title: 'Name',
-                  value: 'User Name',
+                  value: userName,
                 ),
                 _InfoRow(
                   icon: Icons.email_outlined,
                   title: 'Email',
-                  value: 'user@email.com',
+                  value: userEmail,
                 ),
                 _InfoRow(
                   icon: Icons.phone_outlined,
                   title: 'Phone',
-                  value: 'Not added',
+                  value: userPhone,
                 ),
               ],
             ),
-
             const SizedBox(height: 16),
-
             _MenuCard(
               icon: Icons.calendar_month_outlined,
               title: 'My Bookings',
@@ -90,9 +123,7 @@ class ProfileScreen extends StatelessWidget {
                 Navigator.pop(context);
               },
             ),
-
             const SizedBox(height: 12),
-
             _MenuCard(
               icon: Icons.settings_outlined,
               title: 'Settings',
@@ -104,9 +135,7 @@ class ProfileScreen extends StatelessWidget {
                 );
               },
             ),
-
             const SizedBox(height: 12),
-
             _MenuCard(
               icon: Icons.logout,
               title: 'Logout',
@@ -118,9 +147,199 @@ class ProfileScreen extends StatelessWidget {
                 );
               },
             ),
-
             const SizedBox(height: 20),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class EditProfileScreen extends StatefulWidget {
+  final String name;
+  final String email;
+  final String phone;
+
+  const EditProfileScreen({
+    super.key,
+    required this.name,
+    required this.email,
+    required this.phone,
+  });
+
+  @override
+  State<EditProfileScreen> createState() => _EditProfileScreenState();
+}
+
+class _EditProfileScreenState extends State<EditProfileScreen> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _emailController;
+  late final TextEditingController _phoneController;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _nameController = TextEditingController(text: widget.name);
+    _emailController = TextEditingController(text: widget.email);
+    _phoneController = TextEditingController(text: widget.phone);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  void _saveProfile() {
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final phone = _phoneController.text.trim();
+
+    if (name.isEmpty) {
+      _showError('Please enter your name.');
+      return;
+    }
+
+    if (email.isEmpty || !email.contains('@')) {
+      _showError('Please enter a valid email.');
+      return;
+    }
+
+    if (phone.isNotEmpty && phone.length < 10) {
+      _showError('Please enter a valid phone number.');
+      return;
+    }
+
+    Navigator.pop(
+      context,
+      {
+        'name': name,
+        'email': email,
+        'phone': phone,
+      },
+    );
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F8FA),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'Edit Profile',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            const SizedBox(height: 10),
+            _InputField(
+              controller: _nameController,
+              label: 'Name',
+              hint: 'Enter your name',
+              icon: Icons.person_outline,
+            ),
+            const SizedBox(height: 16),
+            _InputField(
+              controller: _emailController,
+              label: 'Email',
+              hint: 'Enter your email',
+              icon: Icons.email_outlined,
+              keyboardType: TextInputType.emailAddress,
+            ),
+            const SizedBox(height: 16),
+            _InputField(
+              controller: _phoneController,
+              label: 'Phone',
+              hint: 'Enter your phone number',
+              icon: Icons.phone_outlined,
+              keyboardType: TextInputType.phone,
+            ),
+            const SizedBox(height: 30),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                onPressed: _saveProfile,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: const Text(
+                  'SAVE CHANGES',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InputField extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+  final String hint;
+  final IconData icon;
+  final TextInputType keyboardType;
+
+  const _InputField({
+    required this.controller,
+    required this.label,
+    required this.hint,
+    required this.icon,
+    this.keyboardType = TextInputType.text,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        prefixIcon: Icon(icon),
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(
+            color: Colors.black,
+          ),
         ),
       ),
     );
